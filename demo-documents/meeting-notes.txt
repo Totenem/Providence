@@ -1,0 +1,3 @@
+Product Planning Meeting
+
+The design team reviewed onboarding, accessibility and the customer support workflow. Next week we will prototype the settings screen and collect usability feedback. The release checklist includes keyboard navigation and readable contrast.

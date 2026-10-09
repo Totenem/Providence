@@ -1,0 +1,7 @@
+FROM alpine:3.22
+RUN apk add --no-cache socat
+USER nobody
+EXPOSE 6080
+HEALTHCHECK --interval=10s --timeout=3s --start-period=5s \
+    CMD wget -q -O /dev/null http://127.0.0.1:6080/vnc.html || exit 1
+CMD ["socat", "TCP-LISTEN:6080,fork,reuseaddr", "TCP:providence:6080"]

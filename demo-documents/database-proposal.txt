@@ -1,0 +1,3 @@
+Database Systems Proposal — Last Semester
+
+Our student project proposes a relational database for the campus library. The schema includes books, borrowers, loans and reservations. PostgreSQL will enforce referential integrity. Indexes on book titles and borrower identifiers will make lookups efficient. The final report compares normalization strategies and outlines a six-week implementation schedule.

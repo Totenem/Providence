@@ -1,0 +1,48 @@
+# Local Python runtimes, dependencies and caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.coverage
+.coverage.*
+htmlcov/
+*.egg-info/
+.tools/
+
+# Generated builds and disposable verification outputs
+build/
+dist/
+.artifacts/
+tmp/
+*.log
+*.exe
+*.winmd
+*.zip
+*.7z
+
+# Local document indexes and credentials
+.providence/
+*.sqlite3
+*.sqlite3-*
+*.db
+*.db-*
+.env
+.env.*
+!.env.example
+.aws/
+.codex/
+.agents/
+*.pem
+*.key
+
+# Personal editor and Windows metadata
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.lnk

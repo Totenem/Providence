@@ -1,0 +1,17 @@
+.git
+.tools
+.venv
+__pycache__
+**/__pycache__
+.pytest_cache
+*.egg-info
+build
+dist
+.providence
+.env
+.env.*
+.artifacts
+.github
+*.exe
+*.winmd
+Providence_Project_Plan.pdf
