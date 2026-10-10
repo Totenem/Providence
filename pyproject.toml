@@ -36,5 +36,5 @@ providence = ["assets/*.png", "assets/*.ico", "qml/*.qml"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 # Keep fixtures outside AppData/Temp, which file discovery intentionally excludes.
-# This directory is disposable: pytest clears it before each run.
-addopts = "--basetemp=.artifacts/pytest"
+# Pytest creates this repository-level disposable directory before each run.
+addopts = "--basetemp=pytest-tmp"

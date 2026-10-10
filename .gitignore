@@ -17,6 +17,7 @@ htmlcov/
 build/
 dist/
 .artifacts/
+pytest-tmp/
 tmp/
 *.log
 *.exe
