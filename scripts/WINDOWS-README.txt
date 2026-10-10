@@ -1,4 +1,4 @@
-Providence 1.1.0 for Windows (64-bit)
+Providence 1.0.1 for Windows (64-bit)
 
 1. Extract the entire Providence folder before running it.
 2. Double-click Providence.exe. Docker and Python are not required.

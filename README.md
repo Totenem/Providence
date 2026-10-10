@@ -6,7 +6,7 @@
 
 **Find your files by what you remember.** Providence is an offline desktop file browser and search app. It combines filenames, exact text, and semantic search to find documents, scanned PDFs, and screenshots on your computer.
 
-**Version 1.1.0 · Windows desktop · MIT license**
+**Version 1.0.1 · Windows desktop · MIT license**
 
 ![Providence library in dark mode, showing demo documents and a padded document preview](docs/images/library-dark.png)
 
@@ -140,6 +140,8 @@ Remove `QT_QPA_PLATFORM` and `QT_QUICK_BACKEND` from the environment before retu
 
 For Windows packaging, see [the build script](scripts/build-windows.ps1), [pinned build dependencies](requirements-windows.txt), and [portable package instructions](scripts/WINDOWS-README.txt). The app and its bundled dependencies/models must remain together.
 
+Every release includes a [user-facing summary](docs/releases/1.0.1.md) and GitHub-generated change notes. See [the release process](docs/RELEASING.md) for versioning, validation, and the separate build/publication controls.
+
 ## Research and evaluation
 
 Providence fuses filename/path matches, FTS5 keyword results, and semantic candidates. It ships [Qwen3-Embedding-0.6B](https://huggingface.co/Qwen/Qwen3-Embedding-0.6B) and [all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) as embedding options. OCR uses RapidOCR 3.10.0 with PP-OCRv6 small ONNX assets. Search clues guide retrieval; they do not load a conversational LLM.
@@ -155,7 +157,7 @@ The local evaluation uses **25 fictional files and 200 queries**, covering Engli
 
 These are **synthetic smoke-test results**, not independent benchmarks or guaranteed accuracy. Queries were created alongside the files, every query has a relevant answer, and no-match detection is not calibrated. Filename/identifier cases also exercise exact matching, so the figures do not isolate embedding quality. Hardware tiers and representative large-library performance remain unvalidated.
 
-See [evaluation methods, timing results, and limitations](docs/1.1.0-validation.md), plus the raw [MiniLM](docs/benchmarks/minilm.json) and [Qwen](docs/benchmarks/qwen.json) results.
+See [evaluation methods, timing results, and limitations](docs/1.0.1-validation.md), plus the raw [MiniLM](docs/benchmarks/minilm.json) and [Qwen](docs/benchmarks/qwen.json) results.
 
 Reproduce the retrieval and vector-scale checks after source/model setup:
 

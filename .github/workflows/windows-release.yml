@@ -4,6 +4,15 @@ on:
   push:
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      confirm_build:
+        description: 'Build and verify the Windows EXE and ZIP'
+        type: boolean
+        default: false
+      confirm_publish:
+        description: 'Publish the ZIP to the selected version tag (also requires confirm_build)'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -28,6 +37,21 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+      - name: Check release version and explicit approvals
+        env:
+          CONFIRM_BUILD: ${{ inputs.confirm_build }}
+          CONFIRM_PUBLISH: ${{ inputs.confirm_publish }}
+        run: |
+          $version = (Select-String -Path pyproject.toml -Pattern '^version = "([^"]+)"$').Matches.Groups[1].Value
+          if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ne "v$version") {
+            throw "Tag $env:GITHUB_REF_NAME does not match package version v$version"
+          }
+          if (-not (Test-Path -LiteralPath "docs/releases/$version.md")) {
+            throw "Write the release summary in docs/releases/$version.md before tagging"
+          }
+          if ($env:CONFIRM_PUBLISH -eq 'true' -and ($env:CONFIRM_BUILD -ne 'true' -or $env:GITHUB_REF_TYPE -ne 'tag')) {
+            throw 'Publishing requires confirm_build and a matching version tag'
+          }
       - uses: actions/setup-python@v7
         with:
           python-version: '3.13'
@@ -54,12 +78,15 @@ jobs:
           .venv/Scripts/python.exe -m pytest -q
           if ($LASTEXITCODE -ne 0) { throw 'Tests failed' }
       - name: Build and verify the portable app
+        if: github.event_name == 'workflow_dispatch' && inputs.confirm_build
         run: ./scripts/build-windows.ps1
       - name: Test native Windows startup
+        if: github.event_name == 'workflow_dispatch' && inputs.confirm_build
         run: |
           Remove-Item Env:QT_QPA_PLATFORM
           ./scripts/verify-desktop-windows.ps1
       - name: Keep the ZIP and checksum
+        if: github.event_name == 'workflow_dispatch' && inputs.confirm_build
         uses: actions/upload-artifact@v7
         with:
           name: Providence-win-x64
@@ -71,12 +98,15 @@ jobs:
           retention-days: 14
 
   publish:
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'workflow_dispatch' && inputs.confirm_build && inputs.confirm_publish && startsWith(github.ref, 'refs/tags/v')
     needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: actions/download-artifact@v8
         with:
           name: Providence-win-x64
@@ -87,8 +117,14 @@ jobs:
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
+          set -euo pipefail
+          summary="docs/releases/${RELEASE_TAG#v}.md"
+          test -s "$summary"
+          gh api "repos/$GH_REPO/releases/generate-notes" -f tag_name="$RELEASE_TAG" --jq '.body' > release/generated-notes.md
+          { cat "$summary"; printf '\n\n'; cat release/generated-notes.md; } > release/release-notes.md
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             gh release upload "$RELEASE_TAG" release/Providence-win-x64.zip release/Providence-win-x64.zip.sha256 --clobber
+            gh release edit "$RELEASE_TAG" --notes-file release/release-notes.md --title "Providence $RELEASE_TAG"
           else
-            gh release create "$RELEASE_TAG" release/Providence-win-x64.zip release/Providence-win-x64.zip.sha256 --verify-tag --generate-notes --title "Providence $RELEASE_TAG"
+            gh release create "$RELEASE_TAG" release/Providence-win-x64.zip release/Providence-win-x64.zip.sha256 --verify-tag --notes-file release/release-notes.md --title "Providence $RELEASE_TAG"
           fi

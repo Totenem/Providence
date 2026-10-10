@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "providence-search"
-version = "1.1.0"
+version = "1.0.1"
 description = "Offline semantic search for personal documents"
 requires-python = ">=3.11,<3.14"
 dependencies = [
@@ -35,3 +35,6 @@ providence = ["assets/*.png", "assets/*.ico", "qml/*.qml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Keep fixtures outside AppData/Temp, which file discovery intentionally excludes.
+# This directory is disposable: pytest clears it before each run.
+addopts = "--basetemp=.artifacts/pytest"
