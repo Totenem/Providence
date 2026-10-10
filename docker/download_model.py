@@ -15,18 +15,18 @@ FILES = (
     "model.safetensors",
 )
 
-def download_weights(url, target):
+def download_weights(url, target, step=1024*1024, workers=8):
     request = urllib.request.Request(url, method="HEAD")
     with urllib.request.urlopen(request, timeout=30) as response:
         size = int(response.headers["Content-Length"])
-    step = 1024 * 1024
+        download_url=response.geturl()
     ranges = [(start, min(start + step, size) - 1) for start in range(0, size, step)]
 
     def fetch(bounds):
         start, end = bounds
         for attempt in range(3):
             try:
-                request = urllib.request.Request(url, headers={"Range": f"bytes={start}-{end}"})
+                request = urllib.request.Request(download_url, headers={"Range": f"bytes={start}-{end}"})
                 with urllib.request.urlopen(request, timeout=30) as response:
                     expected = f"bytes {start}-{end}/{size}"
                     if response.status != 206 or response.headers.get("Content-Range") != expected:
@@ -40,7 +40,7 @@ def download_weights(url, target):
                     raise
                 time.sleep(2)
 
-    with target.open("wb") as output, ThreadPoolExecutor(max_workers=8) as pool:
+    with target.open("wb") as output, ThreadPoolExecutor(max_workers=workers) as pool:
         output.truncate(size)
         futures = [pool.submit(fetch, bounds) for bounds in ranges]
         received = 0
@@ -49,7 +49,8 @@ def download_weights(url, target):
             output.seek(start)
             output.write(data)
             received += len(data)
-            print(f"Model weights: {received:,}/{size:,} bytes", flush=True)
+            if received==size or received//(32*1024*1024)!=(received-len(data))//(32*1024*1024):
+                print(f"Model weights: {received:,}/{size:,} bytes", flush=True)
 
 
 def main():

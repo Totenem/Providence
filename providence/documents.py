@@ -2,20 +2,23 @@ from dataclasses import dataclass
 from pathlib import Path
 import re
 
-SUPPORTED = {".pdf", ".docx", ".txt", ".md"}
+SUPPORTED = {".pdf", ".docx", ".txt", ".md", ".png", ".jpg", ".jpeg"}
 
 
 @dataclass(frozen=True)
 class Passage:
     text: str
     page: int | None = None
+    ocr: bool = False
 
 
 def extract(path: Path) -> list[Passage]:
     suffix = path.suffix.lower()
     if suffix in {".txt", ".md"}:
         raw = path.read_bytes()
-        encoding = "utf-16" if raw.startswith((b"\xff\xfe", b"\xfe\xff")) else "utf-8-sig"
+        encoding = (
+            "utf-16" if raw.startswith((b"\xff\xfe", b"\xfe\xff")) else "utf-8-sig"
+        )
         try:
             content = raw.decode(encoding)
         except UnicodeDecodeError:
@@ -23,16 +26,23 @@ def extract(path: Path) -> list[Passage]:
         return [Passage(content)]
     if suffix == ".pdf":
         import pymupdf
+
         with pymupdf.open(path) as doc:
             if doc.needs_pass:
                 raise ValueError("Password-protected PDF")
-            return [Passage(page.get_text(sort=True), i + 1) for i, page in enumerate(doc)]
+            return [
+                Passage(page.get_text(sort=True), i + 1) for i, page in enumerate(doc)
+            ]
     if suffix == ".docx":
         from docx import Document
+
         document = Document(path)
         texts = [paragraph.text for paragraph in document.paragraphs]
-        texts.extend(" | ".join(cell.text for cell in row.cells)
-                     for table in document.tables for row in table.rows)
+        texts.extend(
+            " | ".join(cell.text for cell in row.cells)
+            for table in document.tables
+            for row in table.rows
+        )
         return [Passage("\n".join(texts))]
     raise ValueError(f"Unsupported file type: {suffix}")
 
@@ -44,7 +54,11 @@ def chunk(passages: list[Passage], words: int = 90, overlap: int = 20) -> list[P
     for passage in passages:
         tokens = re.findall(r"\S+", passage.text)
         for start in range(0, len(tokens), words - overlap):
-            result.append(Passage(" ".join(tokens[start:start + words]), passage.page))
+            result.append(
+                Passage(
+                    " ".join(tokens[start : start + words]), passage.page, passage.ocr
+                )
+            )
             if start + words >= len(tokens):
                 break
     return result

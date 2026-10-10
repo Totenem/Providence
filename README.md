@@ -1,98 +1,172 @@
+<p align="center">
+  <img src="docs/images/providence-cover.png" alt="Providence — Your files, within reach. Illustrated documents and folders connected by mint paths." width="1200">
+</p>
+
 # Providence
 
-Offline semantic search for PDF, TXT, DOCX and Markdown documents. Describe what you remember; Providence returns ranked files and matching passages. Run the native Windows desktop app or the Docker browser preview. Both include the offline model. Other formats, including legacy DOC, are skipped automatically.
+**Find your files by what you remember.** Providence is an offline desktop file browser and search app. It combines filenames, exact text, and semantic search to find documents, scanned PDFs, and screenshots on your computer.
 
-## Run with Docker
+**Version 1.1.0 · Windows desktop · MIT license**
 
-Requires Docker Desktop running **Linux containers**. The first image build needs internet to download system dependencies, Python packages and the embedding model. After building, inference and document processing run offline. Compose puts the app on an internal Docker network with no external connectivity. A small TCP relay exposes only the desktop on localhost; it does not process documents or run inference.
+![Providence library in dark mode, showing demo documents and a padded document preview](docs/images/library-dark.png)
+
+## What you can do
+
+- **Keep a library current automatically.** Choose folders or readable local drives once. New, changed, moved, and deleted files update while Providence is open.
+- **Search on your terms.** Press Enter or click Search to begin. Typing and changing filters never launch AI search.
+- **Search document text and scans.** Offline OCR makes printed text in scanned PDFs and PNG/JPEG images searchable.
+- **Browse while indexing.** Filenames appear before content processing finishes. Filter by location, extension, status, size, and modified date.
+- **Preview matches.** Read documents, jump to PDF pages, find text, and view OCR highlights before opening the original file.
+- **Add clues when a search takes longer.** An unfinished search over 20 seconds offers optional folder, result-count, file-type, and date clues.
+- **Make the interface comfortable.** Light, dark, and system themes, reduced motion, keyboard shortcuts, resizable panes, and low-resource mode are available.
+- **Inspect indexing health.** Check processing states, readable errors, and retry controls in Index health.
+
+<details>
+<summary>More demo screenshots</summary>
+
+### Light theme
+
+![Providence library and document preview in light mode](docs/images/library-light.png)
+
+### Search progress
+
+![Search results area with a spinner, stage progress percentage, and helper text](docs/images/search-progress-dark.png)
+
+### Optional search clues
+
+![Search clues dialog with folder, connected-file count, file type, and modified-date questions](docs/images/search-clues-dark.png)
+
+</details>
+
+Screenshots use fictional documents and demo paths. The progress and clues screens are staged demonstrations of the interface, not search-latency measurements.
+
+## Get started
+
+### Windows portable app
+
+Published packages are listed on the [Releases page](https://github.com/Totenem/Providence/releases). For a Windows portable package:
+
+1. Extract the entire ZIP. Keep `Providence.exe` and its `_internal` folder together.
+2. Open `Providence.exe`. Python and Docker are not required for the portable app.
+3. Review the locations Providence can access, or choose a specific folder, then select **Start my library**.
+4. Browse files as they appear. Enter a filename, phrase, or description and press **Enter** or **Search**.
+
+For example: `the database proposal from last semester`.
+
+Use **Locations & settings** to change scope, exclusions, theme, OCR, resource mode, or the search model. Use **Index health** to review files needing attention. Processing stops when the app closes and unfinished indexing resumes on the next launch.
+
+The desktop target is 64-bit Windows. Inference runs on the CPU; a dedicated GPU is not required. Qwen uses substantially more memory than MiniLM, so MiniLM is the lighter option. The portable app currently has no installer, tray mode, or launch-at-login feature.
+
+### Supported content
+
+| File type | Search and preview support |
+|---|---|
+| PDF | Native text, scanned-page OCR, page previews, and match highlights |
+| Word (`.docx`) | Extracted text and formatted preview |
+| Text and Markdown | Text search, reading, and find-in-preview |
+| PNG and JPEG | OCR text search and image previews with recognized regions |
+| Other readable files | Filename/path search and metadata browsing; content extraction is not supported |
+
+Search progress describes completed stages, not confidence that a match is correct. All optional clues default to **I have no clue**. Folder/type/date clues narrow retrieval; the connected-file count limits how many matches are returned. Select **Search with these clues** to submit a refinement.
+
+### Privacy and practical limits
+
+Models and OCR run locally after setup. The running app does not download models. Source installation and Docker image creation require internet access to obtain dependencies and pinned model assets.
+
+Only selected, readable locations are indexed. Default exclusions skip system/application folders, caches, dependency folders, reparse points, and cloud placeholders. Docker can see only mounted folders.
+
+The local index stores extracted text and is **not encrypted**. The clear-index control removes library indexes and OCR caches while preserving original files. By default, app data lives in `~/.providence`; `PROVIDENCE_DATA_DIR` can override that location.
+
+Content processing is limited to 50 MB per file, 500 pages per PDF, and a 90-second OCR timeout per document. Larger or unreadable files can remain discoverable by filename. Password-protected files require their original application. Handwriting, complex photographs, and faithful table reconstruction are not validated OCR use cases. Cold model loading and rebuilding a changed vector index can make the first search slower.
+
+## Run from source
+
+Python **3.11–3.13** is supported; Python 3.13 is used for Windows validation. From the repository root in PowerShell:
+
+```powershell
+py -3.13 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
+.\.venv\Scripts\python.exe docker/download_model.py --destination build/model
+$env:PROVIDENCE_MODEL_DIR = "$PWD/build/model"
+.\.venv\Scripts\python.exe -m providence
+```
+
+To make the stronger Qwen embedding model available, download its pinned assets before launching:
+
+```powershell
+.\.venv\Scripts\python.exe scripts/download-qwen.py --destination build/qwen
+```
+
+New libraries default to Qwen when its assets are present. Existing MiniLM libraries keep their model until changed in settings. Switching builds a separate compatible index before activation and retains the previous index.
+
+The source CLI also supports indexing and search:
+
+```powershell
+.\.venv\Scripts\python.exe -m providence index ./demo-documents
+.\.venv\Scripts\python.exe -m providence search "database proposal" --limit 10
+```
+
+### Browser preview with Docker
+
+With Docker Desktop using Linux containers:
 
 ```powershell
 docker compose up -d --build
 ```
 
-Open [Providence](http://localhost:6080/vnc.html?autoconnect=1&resize=remote). The **Initial indexing** screen asks you to **Add folder** (use `/documents` for the demo), then **Start indexing**. Once setup finishes, search for “the database proposal I wrote last semester.” Three demo documents are mounted by default. Indexing shows a percentage, processed-file count and current stage. The folder scan stays at 0% until the file total is known. **Stop indexing** stops between files or inference batches and keeps complete documents already saved. If any documents were saved, onboarding opens the library; otherwise you can start again. Re-indexing resumes without reprocessing unchanged documents. A partially embedded document is saved only after all its passages finish.
+Open [the localhost desktop preview](http://localhost:6080/vnc.html?autoconnect=1&resize=remote). Demo documents are mounted at `/documents` by default. Set `PROVIDENCE_DOCUMENTS` in `.env` to mount a different host folder and recreate the containers. The document mount is read-only; app data is kept in a named volume.
 
-To share a real Windows folder without editing configuration, run:
+The browser displays the desktop application through noVNC. It is not a separate web interface. Device-wide discovery is available in the native desktop app; containers cannot inspect unmounted host files.
 
-```powershell
-.\scripts\launch.ps1
-```
+## Contribute
 
-The Windows folder picker selects the host folder to expose read-only to Docker. Onboarding inside Providence then lets you index `/documents` or selected subfolders. You can choose multiple subfolders by clicking **Add folder** again. To avoid the picker, use `scripts\launch.ps1 -DocumentsPath 'C:\Your\Folder'`; use `-Demo` for the bundled sample files. Python still runs only in Docker.
+Bug reports, usability feedback, extraction improvements, and reproducible retrieval evaluations are welcome through [Issues](https://github.com/Totenem/Providence/issues) and pull requests. For a bug report, include the OS, selected model, file type, expected behavior, and observed behavior. Use fictional or anonymized samples rather than private documents.
 
-To search your own files, create `.env` beside `compose.yaml`:
+The main library UI uses **Qt Quick/QML**. Native Qt widgets provide rich document previews and settings/health dialogs. The backend uses **SQLite/FTS5**, a cached **USearch HNSW** vector index, **Watchdog** filesystem notifications, and **RapidOCR/ONNX Runtime**.
 
-```dotenv
-PROVIDENCE_DOCUMENTS=C:/Users/Totem/Documents/my-search-folder
-```
-
-Then run `docker compose up -d --force-recreate` and select `/documents` in the app. The folder is mounted **read-only**. Only mounted folders are visible inside the container. Mount a parent folder to index multiple subfolders. Switching the shared host folder returns you to onboarding so you explicitly index the new selection. Providence never automatically scans the whole system. The native desktop app can select any folder your Windows account can read.
-
-The model is baked into the image; the SQLite index persists in the `providence-data` Docker volume. **Re-index folders** updates changed files and removes deleted files after a completed scan. Unchanged files reuse their index using file size and timestamps; changed metadata triggers a content-hash check. Small documents share inference batches and database transactions. Overlapping selected folders are scanned once. Stopped runs preserve existing files and do not prune deletions. The Explorer-style library shows indexed files immediately, with folder navigation, a details list and a resizable preview pane. PDFs display actual rendered pages with page navigation and zoom. Word previews show formatted paragraphs and tables; exact pagination and embedded images require opening the original document. TXT previews show the complete file, and Markdown previews render headings, lists and formatting. In the Docker browser desktop, **View document** displays extracted text inside Providence; it does not launch applications on your Windows host.
+Run the source tests before submitting changes:
 
 ```powershell
-docker compose logs --tail 50 providence
-docker compose stop
-docker compose start
+$env:PROVIDENCE_MODEL_DIR = "$PWD/build/model"
+$env:QT_QPA_PLATFORM = "offscreen"
+$env:QT_QUICK_BACKEND = "software"
+New-Item -ItemType Directory -Force .artifacts | Out-Null
+.\.venv\Scripts\python.exe -m pytest -q --basetemp .artifacts/test-run
 ```
 
-## Test inside Docker
+Remove `QT_QPA_PLATFORM` and `QT_QUICK_BACKEND` from the environment before returning to a normal desktop session. For UI changes, inspect light/dark and smaller-window layouts. [The screenshot helper](scripts/preview-ui.py) can render public demo paths with `--public`. Retrieval changes should include benchmark results and explain any accuracy, latency, or memory tradeoffs.
+
+For Windows packaging, see [the build script](scripts/build-windows.ps1), [pinned build dependencies](requirements-windows.txt), and [portable package instructions](scripts/WINDOWS-README.txt). The app and its bundled dependencies/models must remain together.
+
+## Research and evaluation
+
+Providence fuses filename/path matches, FTS5 keyword results, and semantic candidates. It ships [Qwen3-Embedding-0.6B](https://huggingface.co/Qwen/Qwen3-Embedding-0.6B) and [all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) as embedding options. OCR uses RapidOCR 3.10.0 with PP-OCRv6 small ONNX assets. Search clues guide retrieval; they do not load a conversational LLM.
+
+The local evaluation uses **25 fictional files and 200 queries**, covering English, Filipino, mixed language, identifiers, and filenames:
+
+| Metric | MiniLM | Qwen3-Embedding-0.6B |
+|---|---:|---:|
+| Recall@1 | 86.5% | 92.5% |
+| Recall@5 | 91.5% | 96.5% |
+| nDCG@10 | 0.9022 | 0.9512 |
+| Filipino-only Recall@5 | 66% | 86% |
+
+These are **synthetic smoke-test results**, not independent benchmarks or guaranteed accuracy. Queries were created alongside the files, every query has a relevant answer, and no-match detection is not calibrated. Filename/identifier cases also exercise exact matching, so the figures do not isolate embedding quality. Hardware tiers and representative large-library performance remain unvalidated.
+
+See [evaluation methods, timing results, and limitations](docs/1.1.0-validation.md), plus the raw [MiniLM](docs/benchmarks/minilm.json) and [Qwen](docs/benchmarks/qwen.json) results.
+
+Reproduce the retrieval and vector-scale checks after source/model setup:
 
 ```powershell
-docker compose --profile test build tests
-docker compose --profile test run --rm tests
+.\.venv\Scripts\python.exe scripts/benchmark-search.py --profile minilm --output .artifacts/benchmark/minilm.json
+.\.venv\Scripts\python.exe scripts/benchmark-search.py --profile qwen --output .artifacts/benchmark/qwen.json
+.\.venv\Scripts\python.exe scripts/benchmark-vectors.py
 ```
 
-The test container has no network. Tests cover extraction (including PDF pages and DOCX tables), chunk overlap, index persistence, changes and deletions, corrupt files, embedding compatibility, real-model semantic retrieval with network access blocked, and the desktop search/preview flow.
+The vector-scale check uses 10,000 artificial single-passage files and excludes model encoding, discovery, and document extraction. It does not measure full device-indexing speed.
 
-CLI commands are also available in the running app container:
+## License
 
-```powershell
-docker compose exec providence python -m providence index /documents
-docker compose exec providence python -m providence search "database proposal"
-```
-
-## Scope and limitations
-
-- Uses CPU inference with `all-MiniLM-L6-v2`, token-aware overlapping chunks, and normalized vectors stored in SQLite. Search scans chunk vectors and selects the strongest passage per file; this MVP is intended for modest personal libraries.
-- PDF text extraction does not include OCR. Scanned/empty documents are reported, and password-protected or corrupt files do not prevent other files from indexing.
-- DOCX extraction includes paragraphs and tables. Embedded images and headers/footers are not indexed.
-- Similarity is a ranking score, not a probability that a result is correct. The model primarily targets English text.
-- The index contains document text and is not encrypted. It stays in your local Docker volume or `%USERPROFILE%\.providence` for the Windows app.
-- OCR, image/voice search, duplicate detection, RAG chat and native installer packaging remain future work.
-
-The reference plan is in [Providence_Project_Plan.md](Providence_Project_Plan.md). Delivery includes a Docker preview and a portable Windows build.
-
-## Windows executable
-
-Download **Providence-win-x64.zip** from [GitHub Releases](https://github.com/Totenem/Providence/releases/latest) when a release is available. Release downloads include a SHA-256 checksum. Build outputs, local indexes, environments and test artifacts are excluded from Git; application source and the icon are included.
-
-Extract `dist/Providence-win-x64.zip`, keep the entire **Providence** folder together, and double-click `Providence.exe`. The `_internal` folder contains Python, Qt, CPU inference libraries and the model. Users do not need to install Python or Docker. First-run onboarding lets you choose multiple Windows folders; indexing only reads selected folders and their subfolders. Double-click a file or use **Open file** to launch its Windows default application. **Show in Explorer** opens Windows File Explorer with the original file selected. Document and folder counts appear in the sidebar.
-
-This is an unsigned portable test release. Signing and installer creation remain separate release steps. Logs are written to `%LOCALAPPDATA%\Providence\logs\providence.log`.
-
-To rebuild on Windows, install Python 3.13 and run:
-
-```powershell
-python -m venv .venv
-.venv\Scripts\python.exe -m pip install -r requirements-windows.txt --extra-index-url https://download.pytorch.org/whl/cpu
-.venv\Scripts\python.exe -m pip install --no-deps -e .
-.\scripts\build-windows.ps1
-```
-
-`scripts/build-windows.ps1` also copies the release README and license into the output folder. The Windows build environment is isolated in `.venv`; Docker uses its own virtual environment. The model runs through Transformers with masked mean pooling and normalization, matching its published inference recipe without training/scientific-library dependencies.
-
-The build script downloads the pinned model when it is missing, embeds the app icon, and creates the portable ZIP and checksum. It needs internet for initial dependency and model downloads.
-
-### Publishing a Windows release
-
-After committing and pushing the source and `.github/workflows/windows-release.yml`, push a version tag:
-
-```powershell
-git tag v0.1.0
-git push origin v0.1.0
-```
-
-The **Windows release** GitHub Actions workflow runs tests, builds the executable on Windows, checks native startup, and attaches the ZIP and checksum to a GitHub Release. Use a new version tag for each release. Running the workflow manually from the Actions page creates a downloadable build artifact without publishing a Release. No executable or ZIP needs to be committed to Git.
-
-The build verifies that packaged application code matches the current source and excludes third-party ICU DLLs that conflict with Qt's Windows ICU API. Run `scripts/verify-desktop-windows.ps1` to test the actual Windows executable: it creates an isolated index, verifies the main window starts, and closes only that test instance.
+Providence is licensed under [MIT](LICENSE). Bundled libraries and model weights retain their respective licenses; portable packages include third-party notices and model cards.

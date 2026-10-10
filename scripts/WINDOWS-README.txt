@@ -1,27 +1,33 @@
-Providence for Windows (64-bit)
+Providence 1.1.0 for Windows (64-bit)
 
 1. Extract the entire Providence folder before running it.
 2. Double-click Providence.exe. Docker and Python are not required.
-3. In Initial indexing, add one or more folders and click Start indexing.
-   Stop indexing keeps complete documents already saved. Re-index to resume.
+3. Review the proposed local drives, or add selected folders, then click
+   Start automatic indexing. Your library stays current while the app is open.
+   Pause/resume indexing from the header; searches stay available.
 4. Browse the file library, or describe a document to search.
    The first index/search loads the bundled model.
 
 Keep Providence.exe and the _internal folder together. You can move the whole
 Providence folder anywhere on your PC. The model is included and runs offline.
 
-Providence only indexes selected folders and their subfolders that your Windows
-account can read. Only PDF, TXT, DOCX and MD are indexed; other formats, including
-legacy DOC, are skipped automatically. Scanned PDFs require OCR, which
-is not yet included. Original documents are never modified.
+Providence discovers files inside the selected locations that your account can
+read. System/application folders, caches, reparse points and cloud placeholders
+are excluded. Adjust exclusions in Locations & settings. All discovered types
+support filename search. PDF, TXT, DOCX, MD and PNG/JPEG support content search.
+Bundled offline OCR reads scanned PDFs and screenshots. Originals are unchanged.
 
-Manage your folders and re-index them from Indexed folders. Select a file for a
+Manage locations, themes, exclusions and model choice in Locations & settings.
+Index health shows pending work and file errors with retry controls. Select a file for a
 large preview. PDFs show rendered pages with navigation and zoom; Word previews
 show formatted text and tables. Open Word files for exact layout and images.
 Double-click a file or use Open file for your Windows default application.
 Show in Explorer opens the original file's folder with the file selected.
 
-Your index is stored at %USERPROFILE%\.providence\index.sqlite3.
+MiniLM uses less memory. The bundled Qwen 0.6B model improves multilingual retrieval
+and uses more CPU and memory. Switching builds a separate index before activating it.
+Indexes are stored at %USERPROFILE%\.providence (index.sqlite3 or index-qwen.sqlite3).
+Indexes contain extracted text and are not encrypted. Settings includes a clear-index action.
 Startup logs are stored at %LOCALAPPDATA%\Providence\logs\providence.log.
 
 This is an unsigned test build. Code signing and an installer are not included.

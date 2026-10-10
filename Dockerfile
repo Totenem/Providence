@@ -25,8 +25,13 @@ COPY pyproject.toml /app/
 ENV HF_HUB_DISABLE_XET=1
 RUN python -c "import subprocess,tomllib; subprocess.check_call(['pip','install','--no-cache-dir',*tomllib.load(open('pyproject.toml','rb'))['project']['dependencies']])"
 COPY docker/download_model.py /app/docker/download_model.py
+COPY scripts/download-qwen.py /app/scripts/download-qwen.py
+COPY providence/paths.py /app/providence/paths.py
+COPY providence/__init__.py /app/providence/__init__.py
 RUN python /app/docker/download_model.py \
     && HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 python -c "from transformers import BertModel,BertTokenizerFast; BertModel.from_pretrained('/opt/providence-model',local_files_only=True); BertTokenizerFast.from_pretrained('/opt/providence-model',local_files_only=True); print('Offline model verified')"
+RUN python /app/scripts/download-qwen.py --destination /opt/providence-qwen
+ENV PROVIDENCE_QWEN_DIR=/opt/providence-qwen
 ENV HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
 RUN apt-get update && apt-get install -y --no-install-recommends libxcb-shape0 x11-utils \
     && rm -rf /var/lib/apt/lists/*

@@ -32,6 +32,7 @@ for dist in distributions():
 licenses.mkdir(exist_ok=True)
 (licenses / "BUILD-DEPENDENCIES.txt").write_text("\n".join(sorted(inventory)) + "\n", encoding="utf-8")
 shutil.copy2(root / "build/model/README.md", licenses / "MODEL-CARD.md")
+shutil.copy2(root / 'build/qwen/README.md', licenses / 'QWEN-MODEL-CARD.md')
 # The bundled model is Apache-2.0; Transformers includes the full license text.
 apache = next((licenses / "transformers").rglob("LICENSE"))
 shutil.copy2(apache, licenses / "MODEL-LICENSE-Apache-2.0.txt")
@@ -48,7 +49,11 @@ for filename in ("launcher.py", "Providence.spec", "pyproject.toml", "requiremen
     shutil.copy2(root / filename, source / filename)
 source_scripts = source / "scripts"
 source_scripts.mkdir(exist_ok=True)
-for filename in ("build-windows.ps1", "package-windows.py", "prepare-icon.py", "verify-package.py", "verify-desktop-windows.ps1", "WINDOWS-README.txt"):
+shutil.copytree(root/'docs',source/'docs',dirs_exist_ok=True)
+shutil.copytree(root/'tests',source/'tests',dirs_exist_ok=True,ignore=shutil.ignore_patterns('__pycache__','*.pyc'))
+for filename in ('benchmark-search.py','benchmark-vectors.py','preview-ui.py','verify-packaged-search.py'):
+    shutil.copy2(root/'scripts'/filename,source_scripts/filename)
+for filename in ("build-windows.ps1", "package-windows.py", "prepare-icon.py", "verify-package.py", "verify-desktop-windows.ps1", "WINDOWS-README.txt", "download-qwen.py"):
     shutil.copy2(root / "scripts" / filename, source_scripts / filename)
 (source / "docker").mkdir(exist_ok=True)
 shutil.copy2(root / "docker" / "download_model.py", source / "docker" / "download_model.py")

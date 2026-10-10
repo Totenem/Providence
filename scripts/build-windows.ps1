@@ -1,10 +1,24 @@
 $ErrorActionPreference = 'Stop'
 Set-Location -LiteralPath (Split-Path -Parent $PSScriptRoot)
 $buildPython = Join-Path $PWD '.venv\Scripts\python.exe'
+$buildWorkspace = [IO.Path]::GetFullPath($PWD.Path)
+$buildTarget = [IO.Path]::GetFullPath((Join-Path $buildWorkspace 'dist\Providence'))
+if (-not $buildTarget.StartsWith($buildWorkspace + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
+    throw 'Build output must stay inside this workspace.'
+}
+foreach ($buildOutputPath in @((Join-Path $buildWorkspace 'dist'), $buildTarget)) {
+    if ((Test-Path -LiteralPath $buildOutputPath) -and ((Get-Item -LiteralPath $buildOutputPath).Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+        throw 'Refusing to replace a linked build output directory.'
+    }
+}
 if (-not (Test-Path -LiteralPath $buildPython)) { throw 'The isolated Windows build environment (.venv) is missing.' }
 if (-not (Test-Path -LiteralPath 'build\model\REVISION')) {
     & $buildPython 'docker/download_model.py' --destination 'build/model'
     if ($LASTEXITCODE -ne 0) { throw 'Downloading the fixed offline model failed.' }
+}
+if (-not (Test-Path -LiteralPath 'build\qwen\REVISION')) {
+    & $buildPython 'scripts/download-qwen.py' --destination 'build/qwen'
+    if ($LASTEXITCODE -ne 0) { throw 'Downloading the fixed Qwen model failed.' }
 }
 & $buildPython -m PyInstaller --noconfirm Providence.spec
 if ($LASTEXITCODE -ne 0) { throw 'Windows packaging failed.' }

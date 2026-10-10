@@ -1,5 +1,5 @@
 # Native Windows one-folder distribution, with the offline model included.
-from PyInstaller.utils.hooks import collect_data_files, copy_metadata
+from PyInstaller.utils.hooks import collect_data_files, copy_metadata, collect_submodules
 from PyInstaller.config import CONF
 from hashlib import sha256
 from pathlib import Path
@@ -8,8 +8,18 @@ source_root = Path(SPECPATH)
 
 datas = collect_data_files('transformers') + copy_metadata('transformers')
 datas += [('build/model', 'models/all-MiniLM-L6-v2')]
+for model_file in (source_root / 'build/qwen').rglob('*'):
+    relative=model_file.relative_to(source_root / 'build/qwen')
+    if model_file.is_file() and '.cache' not in relative.parts:
+        datas.append((str(model_file),str(Path('models/qwen-embedding-0.6b')/relative.parent)))
+datas += collect_data_files('rapidocr',includes=['*.yaml','models/*.onnx'])
+datas += copy_metadata('rapidocr') + copy_metadata('usearch')
 datas += [(str(source_root / 'providence' / 'assets'), 'providence/assets')]
-hiddenimports = ['transformers.models.bert.modeling_bert', 'transformers.models.bert.tokenization_bert']
+datas += [(str(source_root / 'providence' / 'qml'), 'providence/qml')]
+hiddenimports = ['transformers.models.bert.modeling_bert', 'transformers.models.bert.tokenization_bert',
+                 'transformers.models.qwen3.modeling_qwen3','watchdog.observers.read_directory_changes',
+                 'usearch.index']
+hiddenimports += collect_submodules('rapidocr')
 
 a = Analysis(['launcher.py'], pathex=[], binaries=[], datas=datas,
              hiddenimports=hiddenimports, hookspath=[], hooksconfig={},

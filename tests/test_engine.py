@@ -13,13 +13,18 @@ class TestEmbedder:
     identity = "test-model"
 
     def encode(self, texts):
-        return [[1 + text.lower().count("database"), 1 + text.lower().count("beach")]
-                for text in texts]
+        return [
+            [1 + text.lower().count("database"), 1 + text.lower().count("beach")]
+            for text in texts
+        ]
 
 
 @pytest.fixture
 def engine(tmp_path):
-    return Engine(Store(tmp_path / "data" / "index.sqlite3", TestEmbedder.identity), TestEmbedder())
+    return Engine(
+        Store(tmp_path / "data" / "index.sqlite3", TestEmbedder.identity),
+        TestEmbedder(),
+    )
 
 
 def test_incremental_index_refresh_and_delete(engine, tmp_path):
@@ -83,9 +88,11 @@ def test_embedding_failure_keeps_previous_document(engine, tmp_path):
     path.write_text("database")
     engine.index(tmp_path)
     path.write_text("beach")
+
     class Broken(TestEmbedder):
         def encode(self, texts):
             raise RuntimeError("missing model")
+
     with pytest.raises(RuntimeError, match="missing model"):
         Engine(engine.store, Broken()).index(tmp_path)
     assert engine.search("database")[0].text == "database"
@@ -106,7 +113,9 @@ def test_index_model_identity_is_enforced(engine):
 
 
 def test_chunk_overlap_page_and_tail():
-    passages = chunk([Passage(" ".join(str(i) for i in range(11)), 3)], words=5, overlap=2)
+    passages = chunk(
+        [Passage(" ".join(str(i) for i in range(11)), 3)], words=5, overlap=2
+    )
     assert [p.text for p in passages] == ["0 1 2 3 4", "3 4 5 6 7", "6 7 8 9 10"]
     assert all(p.page == 3 for p in passages)
     assert chunk([Passage(" \n ")]) == []
@@ -124,6 +133,7 @@ def test_txt_encodings(tmp_path):
 def test_pdf_pages_and_docx_tables(tmp_path):
     import pymupdf
     from docx import Document
+
     pdf = tmp_path / "proposal.pdf"
     with pymupdf.open() as document:
         document.new_page().insert_text((72, 72), "Database proposal")
@@ -149,11 +159,14 @@ def test_normalized_rejects_bad_vectors():
 
 def test_scan_error_does_not_prune(engine, tmp_path, monkeypatch):
     import providence.engine as module
+
     (tmp_path / "a.txt").write_text("database")
     engine.index(tmp_path)
+
     def inaccessible(root, onerror, followlinks):
         onerror(PermissionError("Access denied"))
         return iter([])
+
     monkeypatch.setattr(module.os, "walk", inaccessible)
     assert engine.index(tmp_path).errors
     assert engine.store.count() == 1
@@ -167,6 +180,7 @@ def test_reindex_forces_embeddings(engine, tmp_path):
 
 def test_corrupt_refresh_removes_stale_text(engine, tmp_path):
     from docx import Document
+
     path = tmp_path / "a.docx"
     document = Document()
     document.add_paragraph("database proposal")
@@ -197,7 +211,9 @@ def test_symlinks_are_not_followed(engine, tmp_path):
         (root / "link.txt").symlink_to(outside)
     except OSError as error:
         if getattr(error, "winerror", None) == 1314:
-            pytest.skip("This Windows account does not have symlink creation privileges")
+            pytest.skip(
+                "This Windows account does not have symlink creation privileges"
+            )
         raise
     assert engine.index(root).indexed == 0
     assert engine.store.count() == 0
@@ -219,16 +235,21 @@ def test_remove_parent_preserves_selected_child(engine, tmp_path):
 
 def test_many_small_files_share_batches_and_progress_is_monotonic(tmp_path):
     from providence.engine import IndexProgress
+
     class Counting(TestEmbedder):
         def __init__(self):
             self.batches = []
+
         def encode(self, texts):
             self.batches.append(len(texts))
             return super().encode(texts)
+
     embedder = Counting()
     engine = Engine(Store(tmp_path / "index.sqlite3", embedder.identity), embedder)
     for index in range(65):
-        (tmp_path / f"file-{index:03}.txt").write_text(f"database proposal number {index}")
+        (tmp_path / f"file-{index:03}.txt").write_text(
+            f"database proposal number {index}"
+        )
     (tmp_path / "corrupt.docx").write_bytes(b"not a docx")
     updates = []
     report = engine.index(tmp_path, updates.append)
@@ -237,27 +258,37 @@ def test_many_small_files_share_batches_and_progress_is_monotonic(tmp_path):
     assert embedder.batches == [32, 32, 1]
     assert engine.store.count() == 65
     assert all(isinstance(update, IndexProgress) for update in updates)
-    assert [update.percent for update in updates] == sorted(update.percent for update in updates)
+    assert [update.percent for update in updates] == sorted(
+        update.percent for update in updates
+    )
     assert updates[-1].percent == 100
     assert updates[-1].completed == updates[-1].total == 66
     assert engine.search("database proposal number 64", limit=100)
 
 
-def test_unchanged_metadata_skips_reads_extraction_and_model(engine, tmp_path, monkeypatch):
+def test_unchanged_metadata_skips_reads_extraction_and_model(
+    engine, tmp_path, monkeypatch
+):
     import providence.engine as module
+
     path = tmp_path / "note.md"
     path.write_text("# Database\nMarkdown proposal")
     engine.index(tmp_path)
+
     def forbidden(*args, **kwargs):
         raise AssertionError("Unchanged documents should not be read or embedded")
+
     monkeypatch.setattr(module, "content_digest", forbidden)
     monkeypatch.setattr(module, "extract", forbidden)
     monkeypatch.setattr(engine.embedder, "encode", forbidden)
     assert engine.index(tmp_path).unchanged == 1
 
 
-def test_touched_file_reuses_hash_and_changed_file_reembeds(engine, tmp_path, monkeypatch):
+def test_touched_file_reuses_hash_and_changed_file_reembeds(
+    engine, tmp_path, monkeypatch
+):
     import os
+
     path = tmp_path / "note.txt"
     path.write_text("database")
     engine.index(tmp_path)
@@ -281,14 +312,20 @@ def test_allowed_formats_only_and_nested_roots_are_deduplicated(engine, tmp_path
     assert sum(report.indexed for report in reports) == 2
     assert engine.store.count() == 2
     assert engine.store.roots() == sorted([parent.resolve(), child.resolve()])
-    assert all(Path(path).suffix.lower() in {".txt", ".md"} for path in engine.store.documents())
+    assert all(
+        Path(path).suffix.lower() in {".txt", ".md"}
+        for path in engine.store.documents()
+    )
 
 
 def test_old_index_schema_migrates_without_losing_documents(tmp_path):
     import sqlite3
+
     database = tmp_path / "old.sqlite3"
     with sqlite3.connect(database) as db:
-        db.execute("CREATE TABLE documents (path TEXT PRIMARY KEY, digest TEXT NOT NULL)")
+        db.execute(
+            "CREATE TABLE documents (path TEXT PRIMARY KEY, digest TEXT NOT NULL)"
+        )
         db.execute("INSERT INTO documents VALUES ('saved.txt','original')")
     store = Store(database, TestEmbedder.identity)
     assert store.digest("saved.txt") == "original"
@@ -297,12 +334,15 @@ def test_old_index_schema_migrates_without_losing_documents(tmp_path):
 
 def test_stop_keeps_completed_files_and_resume_skips_them(tmp_path):
     from threading import Event
+
     stop = Event()
+
     class Stopping(TestEmbedder):
         def encode(self, texts):
             vectors = super().encode(texts)
             stop.set()
             return vectors
+
     embedder = Stopping()
     engine = Engine(Store(tmp_path / "index.sqlite3", embedder.identity), embedder)
     for index in range(65):
@@ -323,6 +363,7 @@ def test_stop_keeps_completed_files_and_resume_skips_them(tmp_path):
 
 def test_stop_during_scan_does_not_prune_existing_files(engine, tmp_path):
     from threading import Event
+
     path = tmp_path / "a.txt"
     path.write_text("database proposal")
     engine.index(tmp_path)
@@ -337,11 +378,14 @@ def test_stop_during_scan_does_not_prune_existing_files(engine, tmp_path):
 
 def test_stop_does_not_save_partially_embedded_document(tmp_path):
     from threading import Event
+
     stop = Event()
+
     class Stopping(TestEmbedder):
         def encode(self, texts):
             stop.set()
             return super().encode(texts)
+
     embedder = Stopping()
     engine = Engine(Store(tmp_path / "index.sqlite3", embedder.identity), embedder)
     (tmp_path / "long.txt").write_text("database " * 5000)
@@ -359,4 +403,4 @@ def test_batched_vectors_stay_with_their_document(engine, tmp_path):
     for path, text, page, vector in engine.store.vectors():
         expected = normalized(TestEmbedder().encode([text])[0])
         assert list(vector) == pytest.approx(expected)
-        assert text in texts[int(Path(path).stem.split('-')[1])]
+        assert text in texts[int(Path(path).stem.split("-")[1])]

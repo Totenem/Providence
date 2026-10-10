@@ -4,6 +4,8 @@ import sys
 from pathlib import Path
 
 if __name__ == "__main__":
+    import multiprocessing
+    multiprocessing.freeze_support()
     os.environ.pop("PROVIDENCE_CONTAINER", None)
     os.environ.pop("PROVIDENCE_LIBRARY_SOURCE", None)
     os.environ.pop("PROVIDENCE_MODEL_DIR", None)

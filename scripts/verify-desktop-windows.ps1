@@ -4,7 +4,9 @@ $testExecutable = Join-Path $testRoot 'dist\Providence\Providence.exe'
 $testData = Join-Path $testRoot '.artifacts\desktop-smoke'
 New-Item -ItemType Directory -Force -Path $testData | Out-Null
 $previousData = $env:PROVIDENCE_DATA_DIR
+$previousLocalAppData = $env:LOCALAPPDATA
 $env:PROVIDENCE_DATA_DIR = $testData
+$env:LOCALAPPDATA = $testData
 $testProcess = $null
 try {
     # Test the real Windows Qt platform with an isolated empty search index.
@@ -14,7 +16,7 @@ try {
     while ((Get-Date) -lt $testDeadline) {
         $testProcess.Refresh()
         if ($testProcess.HasExited) { throw "Providence exited during startup: $($testProcess.ExitCode)" }
-        if ($testProcess.MainWindowTitle -like 'Providence*File library*') {
+        if ($testProcess.MainWindowTitle -like 'Providence*Your files*') {
             $verifiedTitle = $testProcess.MainWindowTitle
             break
         }
@@ -32,4 +34,5 @@ try {
         if (-not $testProcess.HasExited) { Stop-Process -Id $testProcess.Id }
     }
     $env:PROVIDENCE_DATA_DIR = $previousData
+    $env:LOCALAPPDATA = $previousLocalAppData
 }

@@ -47,6 +47,8 @@ jobs:
         run: |
           .venv/Scripts/python.exe docker/download_model.py --destination build/model
           if ($LASTEXITCODE -ne 0) { throw 'Downloading model failed' }
+          .venv/Scripts/python.exe scripts/download-qwen.py --destination build/qwen
+          if ($LASTEXITCODE -ne 0) { throw 'Downloading Qwen model failed' }
       - name: Run UI, indexing and offline model tests
         run: |
           .venv/Scripts/python.exe -m pytest -q

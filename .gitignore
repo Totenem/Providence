@@ -46,3 +46,9 @@ tmp/
 Thumbs.db
 Desktop.ini
 *.lnk
+
+# Local planning documents
+[Rr][Oo][Aa][Dd][Mm][Aa][Pp].[Mm][Dd]
+[Pp][Ll][Aa][Nn].[Mm][Dd]
+/Providence_*_Roadmap.md
+/Providence_*_Plan.md

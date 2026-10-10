@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "providence-search"
-version = "0.1.0"
+version = "1.1.0"
 description = "Offline semantic search for personal documents"
 requires-python = ">=3.11,<3.14"
 dependencies = [
@@ -13,6 +13,12 @@ dependencies = [
   "transformers>=4.41,<6",
   "PyMuPDF>=1.25,<2",
   "python-docx>=1.1,<2",
+  "numpy>=2,<3",
+  "watchdog>=6,<7",
+  "usearch>=2.26,<3",
+  "rapidocr==3.10.0",
+  "onnxruntime>=1.20,<2",
+  "Pillow>=11,<13",
 ]
 
 [project.optional-dependencies]
@@ -25,7 +31,7 @@ providence = "providence.__main__:main"
 include = ["providence*"]
 
 [tool.setuptools.package-data]
-providence = ["assets/*.png", "assets/*.ico"]
+providence = ["assets/*.png", "assets/*.ico", "qml/*.qml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

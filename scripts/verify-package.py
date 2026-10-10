@@ -20,6 +20,8 @@ with pefile.PE(str(executable)) as pe:
     assert any(entry.id == 14 for entry in pe.DIRECTORY_ENTRY_RESOURCE.entries), 'Executable icon missing'
 icon = Path('providence/assets/providence.ico')
 assert (root / 'dist/Providence/_internal' / icon).read_bytes() == (root / icon).read_bytes(), 'Packaged icon is stale'
+for qml in (root / 'providence/qml').glob('*.qml'):
+    assert (root / 'dist/Providence/_internal/providence/qml' / qml.name).read_bytes() == qml.read_bytes(), 'Packaged QML is stale'
 assert not (root / 'dist' / 'Providence' / '_internal' / 'icuuc.dll').exists(), (
     'Bundled ICU can shadow the Windows ICU API required by QtCore')
 archive = CArchiveReader(str(root / 'dist' / 'Providence' / 'Providence.exe')).open_embedded_archive('PYZ.pyz')
