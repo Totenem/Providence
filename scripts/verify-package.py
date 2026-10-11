@@ -15,6 +15,8 @@ def code_signature(code):
 
 
 root = Path(__file__).resolve().parents[1]
+from providence.library_tools import CLIP_REVISION
+assert (root / 'dist/Providence/_internal/models/clip-vit-base-patch32/REVISION').read_text().strip() == CLIP_REVISION, 'Packaged image model missing or stale'
 executable = root / 'dist' / 'Providence' / 'Providence.exe'
 with pefile.PE(str(executable)) as pe:
     assert any(entry.id == 14 for entry in pe.DIRECTORY_ENTRY_RESOURCE.entries), 'Executable icon missing'

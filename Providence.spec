@@ -8,6 +8,10 @@ source_root = Path(SPECPATH)
 
 datas = collect_data_files('transformers') + copy_metadata('transformers')
 datas += [('build/model', 'models/all-MiniLM-L6-v2')]
+for model_file in (source_root / 'build/clip').rglob('*'):
+    relative = model_file.relative_to(source_root / 'build/clip')
+    if model_file.is_file() and '.cache' not in relative.parts:
+        datas.append((str(model_file), str(Path('models/clip-vit-base-patch32') / relative.parent)))
 for model_file in (source_root / 'build/qwen').rglob('*'):
     relative=model_file.relative_to(source_root / 'build/qwen')
     if model_file.is_file() and '.cache' not in relative.parts:
@@ -20,6 +24,7 @@ hiddenimports = ['transformers.models.bert.modeling_bert', 'transformers.models.
                  'transformers.models.qwen3.modeling_qwen3','watchdog.observers.read_directory_changes',
                  'usearch.index']
 hiddenimports += collect_submodules('rapidocr')
+hiddenimports += ['transformers.models.clip.modeling_clip', 'transformers.models.clip.tokenization_clip']
 
 a = Analysis(['launcher.py'], pathex=[], binaries=[], datas=datas,
              hiddenimports=hiddenimports, hookspath=[], hooksconfig={},

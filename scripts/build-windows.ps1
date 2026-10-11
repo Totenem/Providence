@@ -20,6 +20,10 @@ if (-not (Test-Path -LiteralPath 'build\qwen\REVISION')) {
     & $buildPython 'scripts/download-qwen.py' --destination 'build/qwen'
     if ($LASTEXITCODE -ne 0) { throw 'Downloading the fixed Qwen model failed.' }
 }
+if (-not (Test-Path -LiteralPath 'build\clip\REVISION')) {
+    & $buildPython 'scripts/download-clip.py'
+    if ($LASTEXITCODE -ne 0) { throw 'Downloading the fixed image model failed.' }
+}
 & $buildPython -m PyInstaller --noconfirm Providence.spec
 if ($LASTEXITCODE -ne 0) { throw 'Windows packaging failed.' }
 & $buildPython 'scripts/verify-package.py'

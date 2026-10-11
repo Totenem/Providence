@@ -7,7 +7,7 @@ import json
 import time
 from threading import RLock, Event
 
-from .documents import SUPPORTED, Passage, chunk, extract
+from .documents import SUPPORTED, IMAGE_FORMATS, Passage, chunk, extract
 from .store import Store
 from .discovery import DEFAULT_EXCLUSIONS, excluded, walk_files
 from .vector_index import VectorIndex
@@ -306,7 +306,7 @@ class Engine:
         for path in sorted(
             owners,
             key=lambda p: (
-                p.suffix.lower() in {".pdf", ".png", ".jpg", ".jpeg"},
+                p.suffix.lower() in IMAGE_FORMATS | {'.pdf'},
                 str(p),
             ),
         ):
@@ -349,7 +349,7 @@ class Engine:
                     emit("Indexing", f"Unchanged · {path.name}")
                     continue
                 self.store.state(path, "processing")
-                if path.suffix.lower() in {".pdf", ".png", ".jpg", ".jpeg"}:
+                if path.suffix.lower() in IMAGE_FORMATS | {'.pdf'}:
                     # Save native text before the OCR queue so it becomes searchable early.
                     flush()
                     if self.store.setting("ocr_enabled", "1") != "1":
@@ -402,12 +402,7 @@ class Engine:
             except (RuntimeError, ImportError):
                 raise
             except Exception as error:
-                if ocr_yield() and path.suffix.lower() in {
-                    ".pdf",
-                    ".png",
-                    ".jpg",
-                    ".jpeg",
-                }:
+                if ocr_yield() and path.suffix.lower() in IMAGE_FORMATS | {'.pdf'}:
                     self.store.state(
                         path, "ocr_pending", "Waiting for foreground file updates"
                     )

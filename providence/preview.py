@@ -4,6 +4,7 @@ from html import escape
 from pathlib import Path
 from functools import lru_cache
 import re
+from .documents import SUPPORTED, IMAGE_FORMATS, extract
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap, QPainter, QColor, QTextCursor, QTextCharFormat
@@ -158,7 +159,7 @@ class DocumentPreview(QWidget):
                     word_html(self.path, (stat.st_size, stat.st_mtime_ns))
                 )
                 self.stack.setCurrentIndex(1)
-            elif self.path.suffix.lower() in {".png", ".jpg", ".jpeg"}:
+            elif self.path.suffix.lower() in IMAGE_FORMATS:
                 pix = QPixmap(str(self.path))
                 if pix.isNull():
                     raise ValueError("This image cannot be decoded")
@@ -173,15 +174,13 @@ class DocumentPreview(QWidget):
                 self.image.setFixedSize(pix.width() + 48, pix.height() + 48)
                 self.stack.setCurrentIndex(2)
             else:
-                if self.path.suffix.lower() not in {".txt", ".md"}:
+                if self.path.suffix.lower() not in SUPPORTED:
                     raise ValueError(
                         "Content preview is unavailable for this file type"
                     )
                 if self.path.stat().st_size > 5 * 1024 * 1024:
                     raise ValueError("This file is too large for an inline preview")
-                from .documents import extract
-
-                text = extract(self.path)[0].text
+                text = '\n\n'.join(p.text for p in extract(self.path))
                 if self.path.suffix.lower() == ".md":
                     from PySide6.QtGui import QTextDocument
 

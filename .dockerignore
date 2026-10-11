@@ -12,6 +12,7 @@ dist
 .env.*
 .artifacts
 .github
+website
 *.exe
 *.winmd
 Providence_Project_Plan.pdf

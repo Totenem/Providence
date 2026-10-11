@@ -309,11 +309,11 @@ def test_allowed_formats_only_and_nested_roots_are_deduplicated(engine, tmp_path
     for suffix in ("doc", "jpg", "exe", "csv", "html"):
         (parent / f"ignored.{suffix}").write_text("database")
     reports = engine.index_many([child, parent])
-    assert sum(report.indexed for report in reports) == 2
-    assert engine.store.count() == 2
+    assert sum(report.indexed for report in reports) == 4
+    assert engine.store.count() == 4
     assert engine.store.roots() == sorted([parent.resolve(), child.resolve()])
     assert all(
-        Path(path).suffix.lower() in {".txt", ".md"}
+        Path(path).suffix.lower() in {".txt", ".md", ".csv", ".html"}
         for path in engine.store.documents()
     )
 

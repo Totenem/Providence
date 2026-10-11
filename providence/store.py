@@ -259,6 +259,8 @@ class Store:
                     "SELECT signature FROM files WHERE path=?", (str(path),)
                 ).fetchone()
                 if saved and saved[0] == encoded:
+                    if supported:
+                        db.execute("UPDATE files SET state='pending' WHERE path=? AND state='unsupported'", (str(path),))
                     continue
                 db.execute(
                     """INSERT INTO files(path,name,parent,suffix,size,modified,signature,state)
@@ -305,7 +307,7 @@ class Store:
                 for row in db.execute(
                     """SELECT path FROM files
                 WHERE state IN ('pending','ocr_pending') OR (state='failed' AND attempts<3 AND retry_at<?)
-                ORDER BY CASE WHEN suffix IN ('.png','.jpg','.jpeg') OR state='ocr_pending' THEN 1 ELSE 0 END,
+                ORDER BY CASE WHEN suffix IN ('.png','.jpg','.jpeg','.webp','.bmp','.tif','.tiff') OR state='ocr_pending' THEN 1 ELSE 0 END,
                 modified DESC LIMIT ?""",
                     (time.time(), limit),
                 )

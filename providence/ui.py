@@ -1526,7 +1526,7 @@ class Window(QMainWindow):
         item = self.health_files.currentItem()
         if item:
             path = item.data(Qt.ItemDataRole.UserRole)
-            if Path(path).suffix.lower() not in {".pdf", ".png", ".jpg", ".jpeg"}:
+            if Path(path).suffix.lower() not in {".pdf", ".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".tiff"}:
                 self.show_error("Force OCR applies to PDFs and PNG/JPEG images.")
                 return
             self.engine.store.retry(path, force_ocr=True)

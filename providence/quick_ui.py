@@ -292,6 +292,21 @@ class LibraryBridge(QObject):
         dialog.open()
         widget.show()
 
+    @Slot(str)
+    def tools(self, mode):
+        if mode not in ('duplicates', 'images'):
+            return
+        from .library_tools_ui import LibraryToolsDialog
+        for dialog in self.dialogs:
+            if getattr(dialog, 'mode', None) == mode:
+                dialog.raise_()
+                return
+        dialog = LibraryToolsDialog(self.controller, mode, self.parent())
+        self.dialogs.append(dialog)
+        dialog.finished.connect(lambda: self.dialogs.remove(dialog))
+        dialog.setWindowModality(Qt.WindowModality.WindowModal)
+        dialog.open()
+
 
 class QuickWindow(QMainWindow):
     def __init__(self, engine, monitor=True):
@@ -362,6 +377,13 @@ class QuickWindow(QMainWindow):
         self.bridge.refresh()
 
     def closeEvent(self, event):
+        working = [dialog for dialog in self.bridge.dialogs if getattr(dialog, 'worker', None)]
+        if working:
+            for dialog in working:
+                dialog.close()
+            event.ignore()
+            QTimer.singleShot(200, self.close)
+            return
         self.controller.closeEvent(event)
         if event.isAccepted():
             self.controller.engine.store.set_setting(

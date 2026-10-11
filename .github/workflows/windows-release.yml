@@ -73,6 +73,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Downloading model failed' }
           .venv/Scripts/python.exe scripts/download-qwen.py --destination build/qwen
           if ($LASTEXITCODE -ne 0) { throw 'Downloading Qwen model failed' }
+          .venv/Scripts/python.exe scripts/download-clip.py --destination build/clip
+          if ($LASTEXITCODE -ne 0) { throw 'Downloading image model failed' }
       - name: Run UI, indexing and offline model tests
         run: |
           .venv/Scripts/python.exe -m pytest -q

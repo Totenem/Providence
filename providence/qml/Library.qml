@@ -165,6 +165,8 @@ Rectangle {
                 Action { text: '▦  Library'; Layout.fillWidth: true; enabled: shell.snapshot.onboarded; primary: true; onClicked: library.browse('') }
                 Action { text: '⚙  Locations & settings'; Layout.fillWidth: true; onClicked: library.panel(2) }
                 Action { text: '◉  Index health'; Layout.fillWidth: true; onClicked: library.panel(3) }
+                Action { text: '▧  Image search'; Layout.fillWidth: true; enabled: shell.snapshot.onboarded; onClicked: library.tools('images') }
+                Action { text: '▱  Duplicate review'; Layout.fillWidth: true; enabled: shell.snapshot.onboarded; onClicked: library.tools('duplicates') }
                 Caption { text: 'LOCATIONS'; color: shell.muted; font.pixelSize: 11; font.letterSpacing: 1.5; Layout.topMargin: 22 }
                 ListView {
                     Layout.fillWidth: true
