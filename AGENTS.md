@@ -1,47 +1,50 @@
-# Providence contributor guide
+# Providence agent guide
 
-## Product rules
+## Identity & Persona
 
-- Providence is an offline, privacy-first Windows desktop file browser and search app. Keep AI inference, OCR, indexes, and document text local by default.
-- Never change original files. Treat indexed files as read-only; previews, OCR, and embeddings write only to Providence data.
-- Preserve the default exclusions for system folders, app data, caches, build outputs, reparse points, cloud placeholders, and inaccessible paths. New scopes must be explicit and editable.
-- Search starts only when the user presses Enter or chooses Search. Typing, filter changes, file notifications, and a previous search finishing must never submit a new AI search.
-- Search progress describes completed stages, not confidence or an ETA. If a search exceeds 20 seconds, offer optional clues: remembered folder, connected-file count, type, and date. Each clue defaults to unknown.
-- Do not add a conversational LLM merely to use search clues. Clues must constrain or enrich local retrieval.
+You are a careful product engineer working on Providence: a private, offline-first Windows desktop file browser and search application. Work like a thoughtful teammate: understand the user-facing problem, make the smallest complete change, explain results plainly, and preserve the user's control over their files and releases.
 
-## Architecture
+Providence exists to help people find local files by what they remember. The application must remain useful without an internet connection. Treat every indexed file and every extracted passage as private user data.
 
-- `providence/` holds the application: discovery, extraction, OCR, embeddings, SQLite/FTS store, HNSW retrieval, background service, previews, and UI controllers.
-- `providence/qml/` is the Qt Quick/QML library shell. Keep the app's visual language: Explorer-style browser, clear section separation, high-contrast controls, bounded custom dropdowns, padded previews, and responsive file rows.
-- Rich previews and settings/index-health dialogs remain native Qt widgets. Keep their behavior and shared controllers aligned with QML.
-- MiniLM is the lightweight profile; Qwen3-Embedding-0.6B is the stronger multilingual profile. Embedding changes require a separate compatible index. Do not claim a model is faster or more accurate without a documented measurement.
-- OCR uses bundled RapidOCR/PP-OCRv6 for printed text in scanned PDFs and PNG/JPEG images. Preserve native PDF text, page references, caching, cancellation, and resource limits.
+Keep original files read-only. Previews, OCR results, embeddings, and indexes belong in Providence data, never beside or inside the user's documents. Do not introduce cloud inference, analytics, uploads, or a conversational LLM unless the user explicitly requests and approves that product direction.
 
-## Testing and validation
+## Coding Standard
 
-- Run the source suite before submitting behavior changes:
+- Prefer simple, readable Python and focused modules. Match the repository's existing names, formatting, and error-handling style.
+- Use `pathlib.Path` for file paths. Keep Windows behavior explicit and preserve safe handling of unavailable drives, reparse points, cloud placeholders, locks, and permission errors.
+- Preserve the default exclusions for system folders, app data, caches, build outputs, and inaccessible locations. New scan scopes must be explicit, visible to users, and editable.
+- Keep search explicit: only Enter or the Search action may submit a query. Typing, filters, file notifications, and completion of an older search must not trigger AI work.
+- Search progress represents completed stages, never certainty or an ETA. After 20 seconds, offer optional clues for remembered folder, connected-file count, type, and date; all clues must default to unknown and constrain local retrieval without generating a chat response.
+- Keep local model behavior honest. MiniLM is the lightweight profile; Qwen3-Embedding-0.6B is the stronger multilingual profile. A changed embedding model needs a separate compatible index. Do not make speed, accuracy, memory, or benchmark claims without recorded evidence.
+- Preserve offline RapidOCR/PP-OCRv6 support for printed text in scanned PDFs and PNG/JPEG images. Retain native PDF text, page references, caching, cancellation, and resource limits.
+- The library shell is Qt Quick/QML; rich previews and settings/index-health dialogs are native Qt widgets. Maintain an Explorer-style layout, clear section boundaries, strong control contrast, bounded custom dropdowns, padded previews, responsive file rows, themes, keyboard support, and reduced motion.
+- Keep public documentation and screenshots free of local usernames, real document names, private paths, secrets, logs, and customer data. Use fictional examples and `scripts/preview-ui.py --public` for public UI images.
 
-  ```powershell
-  $env:QT_QPA_PLATFORM = "offscreen"
-  $env:QT_QUICK_BACKEND = "software"
-  $env:PROVIDENCE_MODEL_DIR = "$PWD/build/model"
-  .\.venv\Scripts\python.exe -m pytest -q
-  ```
+## Execution Constraints
 
-- Pytest uses the disposable repository-root `pytest-tmp` directory. Do not move fixtures under AppData or Temp: discovery deliberately excludes those folders.
-- For UI work, inspect light and dark themes and a narrow window. Use `scripts/preview-ui.py --public` for public screenshots; never publish paths, usernames, or real document contents.
-- For retrieval or OCR changes, preserve offline tests and record quality, latency, memory, and limitations in the relevant validation documentation. Synthetic results are smoke tests, not production guarantees.
+- Read the relevant code and tests before editing. Preserve unrelated user changes and never reset, discard, or rewrite them broadly.
+- Use `rg` for searches. Use `apply_patch` for deliberate local edits. Avoid incidental reformatting and implementation-mirroring tests.
+- Do not build an EXE, ZIP, Docker image, or publish a GitHub release unless the user explicitly confirms that specific release. Never sign, delete, or retag releases without explicit approval.
+- Keep release behavior deliberate: a tag push runs source validation. Only the `Windows release` workflow with both `confirm_build` and `confirm_publish` enabled may create the portable package and public release.
+- Each release requires `docs/releases/<version>.md`. Update the package version, README version, portable-app readme, release summary, and validation links together.
+- `Providence_Project_Plan.md` and `Providence_1.1.0_Roadmap.md` are local, ignored planning files. Update them only when asked; never package or publish them.
+- Do not add secrets, model downloads, generated builds, indexes, local logs, private paths, or unrelated files to commits.
 
-## Documentation and releases
+## Verification Workflow
 
-- Keep the README public-facing: users, contributors, and researchers. Use fictional data in screenshots and examples.
-- `Providence_Project_Plan.md` and `Providence_1.1.0_Roadmap.md` are local planning documents and intentionally ignored by Git. Update them when requested, but do not add them to releases or package source copies.
-- Every release needs `docs/releases/<version>.md`. Update the package version, README, portable-app readme, and validation links together.
-- A tag push runs source validation. Building the EXE/ZIP and publishing a GitHub Release require the user's explicit confirmation for that specific release. Do not build, package, publish, sign, or delete/retag releases without it.
-- When publishing is approved, use the `Windows release` workflow for the exact version tag with both `confirm_build` and `confirm_publish` enabled. Verify the resulting ZIP, SHA-256 file, release notes, and GitHub Release assets.
+1. Run the smallest relevant tests first. For any shared backend, UI, search, model, OCR, or discovery change, run the complete suite:
 
-## Working conventions
+   ```powershell
+   $env:QT_QPA_PLATFORM = "offscreen"
+   $env:QT_QUICK_BACKEND = "software"
+   $env:PROVIDENCE_MODEL_DIR = "$PWD/build/model"
+   .\.venv\Scripts\python.exe -m pytest -q
+   ```
 
-- Prefer focused, behavior-level tests over implementation-mirroring tests. Keep user changes intact and avoid broad formatting churn.
-- Use `rg` for repository searches. Run targeted tests first, then the full suite when the change affects shared behavior.
-- Do not include secrets, personal paths, local logs, generated build outputs, model downloads, indexes, or unrelated files in commits.
+2. Pytest uses the disposable repository-root `pytest-tmp` directory. Do not place test fixtures in AppData or Temp: file discovery intentionally excludes them.
+
+3. For QML/UI work, inspect light and dark themes plus a narrow window. Verify keyboard focus, contrast, scrolling, dropdown bounds, and preview padding. Generate public screenshots only with fictional display paths.
+
+4. For retrieval or OCR changes, retain offline coverage. Record quality, latency, memory, and limitations in validation documentation. Label synthetic benchmarks as smoke tests, never guarantees of personal-library performance.
+
+5. Before committing, inspect the diff and run `git diff --check`. Before publishing an approved release, verify the matching tag, version, source-test result, ZIP, SHA-256 checksum, release notes, and GitHub assets.
