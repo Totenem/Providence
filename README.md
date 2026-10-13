@@ -189,7 +189,7 @@ Remove `QT_QPA_PLATFORM` and `QT_QUICK_BACKEND` from the environment before retu
 
 For Windows packaging, see [the build script](scripts/build-windows.ps1), [pinned build dependencies](requirements-windows.txt), and [portable package instructions](scripts/WINDOWS-README.txt). The app and its bundled dependencies/models must remain together.
 
-Every release includes a user-facing summary and GitHub-generated change notes. See the [v1.0.2 draft summary](docs/releases/1.0.2.md), [published v1.0.1 summary](docs/releases/1.0.1.md), and [release process](docs/RELEASING.md) for versioning, validation, and separate build/publication controls.
+Every release includes a user-facing summary and GitHub-generated change notes. See the [v1.0.2 release summary](docs/releases/1.0.2.md), [published v1.0.1 summary](docs/releases/1.0.1.md), and [release process](docs/RELEASING.md) for versioning, validation, and separate build/publication controls.
 
 ## Research and evaluation
 

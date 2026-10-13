@@ -13,6 +13,8 @@ Label pull requests `enhancement`, `feature`, `ui`, `bug`, `fix`, `documentation
 
 ## Makefile commands on Windows
 
+See the [Makefile guide](../MAKEFILE.md) for every command, the complete release sequence, PowerShell alternatives and common errors.
+
 The root [Makefile](../Makefile) uses Windows PowerShell and defaults to the version in `pyproject.toml`. Install GNU Make and GitHub CLI, then authenticate with `gh auth login`. Git must also be available. Run commands from the repository root:
 
 ```powershell
