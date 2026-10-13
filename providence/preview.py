@@ -4,7 +4,7 @@ from html import escape
 from pathlib import Path
 from functools import lru_cache
 import re
-from .documents import SUPPORTED, IMAGE_FORMATS, extract
+from .documents import SUPPORTED, IMAGE_FORMATS, check_office_archive, extract
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap, QPainter, QColor, QTextCursor, QTextCharFormat
@@ -26,6 +26,7 @@ def word_html(path, signature=None):
     from docx.table import Table
     from docx.text.paragraph import Paragraph
 
+    check_office_archive(Path(path))
     parts = []
     for block in Document(path).iter_inner_content():
         if isinstance(block, Paragraph):
@@ -160,19 +161,24 @@ class DocumentPreview(QWidget):
                 )
                 self.stack.setCurrentIndex(1)
             elif self.path.suffix.lower() in IMAGE_FORMATS:
-                pix = QPixmap(str(self.path))
+                from io import BytesIO
+                from PIL import Image, ImageOps
+                if self.path.stat().st_size > 50 * 1024 * 1024:
+                    raise ValueError('Image exceeds the 50 MB preview limit')
+                with Image.open(self.path) as source:
+                    if source.width * source.height > 40_000_000:
+                        raise ValueError('Image exceeds the 40 megapixel preview limit')
+                    image = ImageOps.exif_transpose(source).convert('RGB')
+                    image.thumbnail((1200, 1600))
+                    encoded = BytesIO()
+                    image.save(encoded, format='PNG')
+                pix = QPixmap()
+                pix.loadFromData(encoded.getvalue())
                 if pix.isNull():
                     raise ValueError("This image cannot be decoded")
-                pix = pix.scaled(
-                    1200,
-                    1600,
-                    Qt.AspectRatioMode.KeepAspectRatio,
-                    Qt.TransformationMode.SmoothTransformation,
-                )
                 self.image_source = pix
-                self.image.setPixmap(pix)
-                self.image.setFixedSize(pix.width() + 48, pix.height() + 48)
                 self.stack.setCurrentIndex(2)
+                self.render_image()
             else:
                 if self.path.suffix.lower() not in SUPPORTED:
                     raise ValueError(
@@ -181,7 +187,7 @@ class DocumentPreview(QWidget):
                 if self.path.stat().st_size > 5 * 1024 * 1024:
                     raise ValueError("This file is too large for an inline preview")
                 text = '\n\n'.join(p.text for p in extract(self.path))
-                if self.path.suffix.lower() == ".md":
+                if self.path.suffix.lower() in {".md", ".markdown"}:
                     from PySide6.QtGui import QTextDocument
 
                     self.paper.document().setMarkdown(
@@ -197,6 +203,20 @@ class DocumentPreview(QWidget):
             self.empty.setWordWrap(True)
             self.stack.setCurrentIndex(0)
             self.toolbar.hide()
+
+    def render_image(self):
+        if self.image_source is None:
+            return
+        source = self.image_source
+        pix = source.scaled(
+            min(source.width(), max(80, self.scroll.viewport().width() - 48)),
+            min(source.height(), max(80, self.scroll.viewport().height() - 48)),
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
+        self.image.setPixmap(pix)
+        self.image.setFixedSize(pix.width() + 48, pix.height() + 48)
+        self.overlay_ocr()
 
     def render_pdf(self):
         import pymupdf
@@ -270,7 +290,7 @@ class DocumentPreview(QWidget):
         super().resizeEvent(event)
         if self.path and self.stack.currentIndex() == 2:
             try:
-                self.render_pdf()
+                self.render_image() if self.image_source is not None else self.render_pdf()
             except Exception as error:
                 self.empty.setText(f"Preview unavailable\n\n{error}")
                 self.stack.setCurrentIndex(0)
@@ -288,8 +308,7 @@ class DocumentPreview(QWidget):
             if text:
                 self.highlight(text)
         elif self.image_source is not None:
-            self.image.setPixmap(self.image_source)
-            self.overlay_ocr()
+            self.render_image()
 
     def set_ocr(self, payload):
         self.ocr_payload = payload

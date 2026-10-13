@@ -36,6 +36,7 @@ class Store:
                     identity TEXT PRIMARY KEY, payload TEXT NOT NULL);
                 CREATE VIRTUAL TABLE IF NOT EXISTS chunk_fts USING fts5(text, path UNINDEXED, page UNINDEXED,
                     content='chunks', content_rowid='id', tokenize='unicode61');
+                CREATE VIRTUAL TABLE IF NOT EXISTS chunk_terms USING fts5vocab(chunk_fts, 'row');
                 CREATE TRIGGER IF NOT EXISTS chunks_ai AFTER INSERT ON chunks BEGIN
                     INSERT INTO chunk_fts(rowid,text,path,page) VALUES(new.id,new.text,new.path,new.page);
                 END;
@@ -437,13 +438,79 @@ class Store:
             key=str.casefold,
         )
 
-    def lexical(self, query, limit=100):
+    def search_words(self, query):
+        """Ignore filler words; expand only an unambiguous one-edit spelling error."""
+        import re
+        import string
+
+        tokens = list(dict.fromkeys(re.findall(r"\w+", query.casefold())[:30]))
+        filler = {'a', 'an', 'the', 'for', 'of', 'in', 'on', 'at', 'to', 'and', 'with'}
+        words = [word for word in tokens if word not in filler] or tokens
+        corrected = False
+        attempts = 0
+        name_terms = None
+        with self.connect() as db:
+            for index, word in enumerate(words):
+                if not (5 <= len(word) <= 24 and word.isascii() and word.isalpha()):
+                    continue
+                if db.execute(
+                    'SELECT 1 FROM chunk_fts WHERE chunk_fts MATCH ? LIMIT 1',
+                    ('"' + word + '"',),
+                ).fetchone():
+                    continue
+                if name_terms is None:
+                    name_terms = {
+                        term for (name,) in db.execute('SELECT name FROM files')
+                        for term in re.findall(r'\w+', name.casefold().replace('_', ' '))
+                    }
+                if word in name_terms:
+                    continue
+                if attempts >= 8:
+                    break
+                attempts += 1
+                splits = [(word[:i], word[i:]) for i in range(len(word) + 1)]
+                variants = {left + right[1:] for left, right in splits if right}
+                variants.update(
+                    left + right[1] + right[0] + right[2:]
+                    for left, right in splits if len(right) > 1
+                )
+                variants.update(
+                    left + letter + right[1:]
+                    for left, right in splits if right
+                    for letter in string.ascii_lowercase
+                )
+                variants.update(
+                    left + letter + right for left, right in splits
+                    for letter in string.ascii_lowercase
+                )
+                variants = sorted(variants)
+                matches = set(variants) & name_terms
+                if len(matches) > 1:
+                    continue
+                for start in range(0, len(variants), 500):
+                    batch = variants[start:start + 500]
+                    matches.update(
+                        row[0] for row in db.execute(
+                            'SELECT term FROM chunk_terms WHERE term IN ('
+                            + ','.join('?' for _ in batch) + ')', batch
+                        )
+                    )
+                    if len(matches) > 1:
+                        break
+                if len(matches) == 1:
+                    words[index] = next(iter(matches))
+                    corrected = True
+        return ' '.join(words), corrected
+
+    def lexical(self, query, limit=100, require_all=False):
         import re
 
         tokens = re.findall(r"\w+", query, flags=re.UNICODE)
         if not tokens:
             return []
-        expression = " OR ".join('"' + token + '"' for token in tokens[:30])
+        expression = (" AND " if require_all else " OR ").join(
+            '"' + token + '"' for token in tokens[:30]
+        )
         with self.connect() as db:
             return db.execute(
                 """SELECT path,text,page,bm25(chunk_fts) FROM chunk_fts
@@ -462,6 +529,31 @@ class Store:
                     ("%" + escaped + "%", "%" + escaped + "%", query, limit),
                 )
             ]
+
+    def identifier_paths(self, codes, cancelled=lambda: False):
+        from .search_evidence import identifier_pattern, identifier_expression
+
+        patterns = [identifier_pattern(code) for code in codes]
+        def matches(value):
+            return all(pattern.search(value) for pattern in patterns)
+
+        found = set()
+        with self.connect() as db:
+            for (path,) in db.execute('SELECT path FROM files'):
+                if cancelled():
+                    return set()
+                if matches(path):
+                    found.add(path)
+            # Use indexed token candidates, then check boundaries/separators literally.
+            expression = ' OR '.join(identifier_expression(code) for code in codes)
+            for path, text in db.execute(
+                'SELECT path,text FROM chunk_fts WHERE chunk_fts MATCH ?', (expression,)
+            ):
+                if cancelled():
+                    return set()
+                if matches(path + '\n' + text):
+                    found.add(path)
+        return found
 
     def chunks_by_ids(self, ids):
         if not ids:

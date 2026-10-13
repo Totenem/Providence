@@ -318,7 +318,7 @@ Rectangle {
                     Rectangle {
                         id: searchProgress
                         objectName: 'search-progress'
-                        visible: shell.snapshot.search.running || shell.snapshot.search.percent === 100
+                        visible: shell.snapshot.search.running
                         anchors.top: parent.top
                         anchors.left: parent.left
                         anchors.right: parent.right
@@ -371,7 +371,7 @@ Rectangle {
                             required property var modelData
                             required property int index
                             width: Math.max(0, files.width - 14)
-                            height: 66
+                            height: entry.modelData.explanation ? 84 : 66
                             radius: 8
                             color: shell.snapshot.selected === modelData.path ? (shell.dark ? '#244c40' : '#dbeee6') : mouse.containsMouse ? (shell.dark ? '#2b3b4d' : '#edf2f7') : 'transparent'
                             Behavior on color { ColorAnimation { duration: shell.motion } }
@@ -389,6 +389,20 @@ Rectangle {
                                     spacing: 3
                                     Caption { text: entry.modelData.name; font.weight: Font.DemiBold; Layout.fillWidth: true; Layout.minimumWidth: 0; Layout.preferredWidth: 1 }
                                     Caption { text: entry.modelData.path; color: shell.muted; font.pixelSize: 11; Layout.fillWidth: true; Layout.minimumWidth: 0; Layout.preferredWidth: 1 }
+                                    Caption {
+                                        objectName: 'match-evidence-' + entry.index
+                                        text: entry.modelData.explanation
+                                        visible: text.length > 0
+                                        textFormat: Text.PlainText
+                                        color: shell.muted
+                                        font.pixelSize: 11
+                                        Layout.fillWidth: true
+                                        Layout.minimumWidth: 0
+                                        Layout.preferredWidth: 1
+                                        ToolTip.visible: evidenceHover.hovered
+                                        ToolTip.text: text
+                                        HoverHandler { id: evidenceHover }
+                                    }
                                 }
                                 ColumnLayout {
                                     Layout.preferredWidth: 100
@@ -417,7 +431,17 @@ Rectangle {
                             if (event.key === Qt.Key_Return) { library.action('open'); event.accepted = true }
                         }
                     }
-                    Caption { anchors.centerIn: parent; visible: files.count === 0; text: 'Files appear here as they are discovered.'; color: shell.muted }
+                    Caption {
+                        objectName: 'results-empty'
+                        anchors.centerIn: parent
+                        width: Math.max(0, parent.width - 48)
+                        visible: files.count === 0 && !shell.snapshot.search.running
+                        text: shell.snapshot.emptyMessage
+                        textFormat: Text.PlainText
+                        wrapMode: Text.Wrap
+                        horizontalAlignment: Text.AlignHCenter
+                        color: shell.muted
+                    }
                 }
                 RowLayout {
                     Action { text: 'Previous'; enabled: shell.snapshot.previous; onClicked: library.action('previous') }
@@ -425,7 +449,7 @@ Rectangle {
                     Action { text: 'Next'; enabled: shell.snapshot.next; onClicked: library.action('next') }
                 }
             }
-            Caption { text: shell.snapshot.status; color: shell.muted; Layout.fillWidth: true; ToolTip.visible: statusHover.hovered; ToolTip.text: text; HoverHandler { id: statusHover } }
+            Caption { text: shell.snapshot.status; textFormat: Text.PlainText; wrapMode: Text.Wrap; maximumLineCount: 3; color: shell.muted; Layout.fillWidth: true; Layout.minimumWidth: 0; ToolTip.visible: statusHover.hovered; ToolTip.text: text; HoverHandler { id: statusHover } }
         }
     }
     Menu {

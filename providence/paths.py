@@ -22,7 +22,11 @@ def model_dir() -> Path:
         return Path(override)
     if getattr(sys, "frozen", False):
         return Path(sys._MEIPASS) / "models" / "all-MiniLM-L6-v2"
-    return data_dir() / "models" / "all-MiniLM-L6-v2"
+    installed = data_dir() / "models" / "all-MiniLM-L6-v2"
+    bundled = Path(__file__).resolve().parents[1] / "build" / "model"
+    if (installed / "modules.json").is_file() or not bundled.is_dir():
+        return installed
+    return bundled
 
 
 def qwen_dir() -> Path:

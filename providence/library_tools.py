@@ -51,7 +51,7 @@ def eligible_file(store, path, scope=None):
         return False
     # A formerly ordinary parent folder may have become a junction or placeholder.
     root = max(containing, key=lambda item: len(item.parts))
-    parts = [path, *(part for part in path.parents if part.is_relative_to(root))]
+    parts = [path, *(part for part in path.parents if part.is_relative_to(root) and part != Path(part.anchor))]
     return (not any(excluded(part, patterns, store.path.parent) for part in parts)
             and path.is_file())
 
@@ -138,6 +138,8 @@ class ClipEmbedder:
         if (directory / 'REVISION').read_text().strip() != CLIP_REVISION:
             raise RuntimeError('The image-search model revision does not match this app')
         from transformers import CLIPModel, AutoTokenizer
+        import torch
+        torch.set_num_threads(2)
         self.tokenizer = AutoTokenizer.from_pretrained(directory, local_files_only=True)
         self.model = CLIPModel.from_pretrained(directory, local_files_only=True).eval()
 
@@ -213,6 +215,8 @@ class ImageLibrary:
                     if signature(path) != before:
                         raise ValueError('Image changed during indexing')
                     with self.store.connect() as db:
+                        if not db.execute('SELECT 1 FROM files WHERE path=?', (str(path),)).fetchone():
+                            raise ValueError('Image left the catalog during indexing; refresh the library')
                         db.execute('INSERT OR REPLACE INTO image_vectors VALUES(?,?,?,?)',
                                    (str(path), encoded, self.embedder.identity, array('f', vector).tobytes()))
                     report['indexed'] += 1

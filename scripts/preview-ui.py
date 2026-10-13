@@ -8,7 +8,7 @@ from threading import Event
 import argparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from PySide6.QtWidgets import QApplication, QLabel, QListWidget
+from PySide6.QtWidgets import QApplication, QLabel, QListWidget, QTreeWidget
 from PySide6.QtCore import QObject, QMetaObject
 from providence.embeddings import LocalEmbedder
 from providence.engine import Engine
@@ -108,6 +108,61 @@ def search_screenshots(app, window, engine, root):
         engine.search = original
 
 
+def capture_tool(window, dialog, target):
+    texts = [(label, label.text()) for label in dialog.findChildren(QLabel)]
+    cells = []
+    for tree in dialog.findChildren(QTreeWidget):
+        pending = [tree.topLevelItem(i) for i in range(tree.topLevelItemCount())]
+        while pending:
+            item = pending.pop()
+            pending.extend(item.child(i) for i in range(item.childCount()))
+            cells.extend((item, column, item.text(column)) for column in range(tree.columnCount()))
+    try:
+        if PUBLIC_DEMO:
+            for label, text in texts:
+                label.setText(text.replace(DEMO_DOCUMENTS, 'Demo/Documents'))
+            for item, column, text in cells:
+                item.setText(column, text.replace(DEMO_DOCUMENTS, 'Demo/Documents'))
+        settle(QApplication.instance())
+        assert dialog.grab().save(str(target))
+    finally:
+        for label, text in texts:
+            label.setText(text)
+        for item, column, text in cells:
+            item.setText(column, text)
+
+
+def tool_screenshots(app, window, engine, documents, output):
+    from PIL import Image, ImageDraw
+    from providence.library_tools import find_duplicates, clip_dir
+    for name in ('invoice-original.csv', 'invoice-copy.csv'):
+        (documents / name).write_text('Invoice,Amount\nZX92847,125\n', encoding='utf-8')
+    for name, colour in [('image-a.png', 'red'), ('image-b.png', 'blue')]:
+        image = Image.new('RGB', (320, 240), 'white')
+        ImageDraw.Draw(image).rectangle((65, 30, 255, 220), fill=colour)
+        image.save(documents / name)
+    engine.store.set_setting('ocr_enabled', '0')
+    engine.index(documents)
+    window.bridge.refresh()
+    for theme in ('Light', 'Dark'):
+        window.controller.theme_combo.setCurrentText(theme)
+        window.bridge.tools('duplicates')
+        dialog = window.bridge.dialogs[-1]
+        dialog.show_duplicates(find_duplicates(engine.store))
+        dialog.results.setCurrentItem(dialog.results.topLevelItem(0).child(0))
+        capture_tool(window, dialog, output / f'duplicates-{theme.lower()}.png')
+        dialog.reject()
+        window.bridge.tools('images')
+        dialog = window.bridge.dialogs[-1]
+        dialog.query.setText('A red square on a white background')
+        if (clip_dir() / 'REVISION').is_file():
+            dialog.show_image_update(dialog.images.update())
+            dialog.show_images(dialog.images.search(dialog.query.text()))
+            dialog.results.setCurrentItem(dialog.results.topLevelItem(0))
+        capture_tool(window, dialog, output / f'images-{theme.lower()}.png')
+        dialog.reject()
+
+
 def main():
     global PUBLIC_DEMO, DEMO_DOCUMENTS
     parser = argparse.ArgumentParser(description=__doc__)
@@ -166,6 +221,7 @@ def main():
     window.resize(1080, 640)
     settle(app)
     capture(window, output / "library-small.png")
+    tool_screenshots(app, window, engine, documents, output)
     window.close()
     engine.ocr_worker.close()
 

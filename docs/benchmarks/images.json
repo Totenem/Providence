@@ -1,0 +1,41 @@
+{
+  "method": "Synthetic colour/shape smoke test; no independent accuracy claim",
+  "model": "openai/clip-vit-base-patch32@3d74acf9a28c67741b2f4f2ea7635f0aaf6f0268",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "cpu": "AMD64 Family 25 Model 116 Stepping 1, AuthenticAMD",
+  "weight_bytes": 605247071,
+  "cold_load_seconds": 4.53515020001214,
+  "indexing_seconds": 0.7678154000313953,
+  "images_indexed": 4,
+  "errors": [],
+  "unchanged_images": 4,
+  "cached_refresh_seconds": 0.032111500040628016,
+  "hit_at_1": 1.0,
+  "peak_process_memory_mib": 837.421875,
+  "trials": [
+    {
+      "query": "a red square on a white background",
+      "expected": "sample-a.png",
+      "first": "sample-a.png",
+      "seconds": 0.09032760001718998
+    },
+    {
+      "query": "a blue square on a white background",
+      "expected": "sample-b.png",
+      "first": "sample-b.png",
+      "seconds": 0.041533099953085184
+    },
+    {
+      "query": "a green square on a white background",
+      "expected": "sample-c.png",
+      "first": "sample-c.png",
+      "seconds": 0.050603499985300004
+    },
+    {
+      "query": "a yellow square on a white background",
+      "expected": "sample-d.png",
+      "first": "sample-d.png",
+      "seconds": 0.04353409993927926
+    }
+  ]
+}

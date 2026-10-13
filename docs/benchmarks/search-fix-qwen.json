@@ -1,0 +1,46 @@
+{
+  "profile": "qwen",
+  "model": "Qwen/Qwen3-Embedding-0.6B@97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3:last-token:1024:v1",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "python": "3.13.16",
+  "documents": 25,
+  "queries": 200,
+  "synthetic": true,
+  "quality": {
+    "hit1": 0.925,
+    "hit5": 0.965,
+    "ndcg": 0.9512
+  },
+  "categories": {
+    "English": {
+      "hit1": 1.0,
+      "hit5": 1.0,
+      "ndcg": 1.0
+    },
+    "Filipino": {
+      "hit1": 0.7,
+      "hit5": 0.86,
+      "ndcg": 0.805
+    },
+    "Mixed": {
+      "hit1": 1.0,
+      "hit5": 1.0,
+      "ndcg": 1.0
+    },
+    "Identifier": {
+      "hit1": 1.0,
+      "hit5": 1.0,
+      "ndcg": 1.0
+    },
+    "Filename": {
+      "hit1": 1.0,
+      "hit5": 1.0,
+      "ndcg": 1.0
+    }
+  },
+  "query_batch_seconds": 62.647,
+  "index_seconds": 6.456,
+  "warm_encoder_p95_ms": 474.268,
+  "cached_query_hybrid_lookup_p95_ms": 20.298,
+  "indexing_issues": []
+}

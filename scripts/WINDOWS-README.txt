@@ -1,4 +1,4 @@
-Providence 1.0.1 for Windows (64-bit)
+Providence 1.0.2 for Windows (64-bit)
 
 1. Extract the entire Providence folder before running it.
 2. Double-click Providence.exe. Docker and Python are not required.
@@ -14,8 +14,17 @@ Providence folder anywhere on your PC. The model is included and runs offline.
 Providence discovers files inside the selected locations that your account can
 read. System/application folders, caches, reparse points and cloud placeholders
 are excluded. Adjust exclusions in Locations & settings. All discovered types
-support filename search. PDF, TXT, DOCX, MD and PNG/JPEG support content search.
+support filename search. Content search includes PDF, DOCX, XLSX, PPTX, CSV/TSV,
+text, Markdown, common programming/configuration files, and supported images.
 Bundled offline OCR reads scanned PDFs and screenshots. Originals are unchanged.
+
+Duplicate review compares file contents and groups byte-identical copies without
+deleting anything. Image search uses the local CLIP model to rank visual content.
+Open Image search, click Update image index, then enter an English description
+and press Enter or Search images. Repeat the update after images change.
+Visual similarity is not confidence; unrelated descriptions can return images.
+XLSX uses saved values without calculating formulas. PPTX previews show extracted
+slide text/tables. TIFF image tools inspect the first frame only.
 
 Manage locations, themes, exclusions and model choice in Locations & settings.
 Index health shows pending work and file errors with retry controls. Select a file for a

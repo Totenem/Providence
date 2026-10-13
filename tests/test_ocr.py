@@ -128,3 +128,18 @@ def test_ocr_yields_to_new_ordinary_files_without_failure(tmp_path, monkeypatch)
     assert not report.errors and report.indexed == 1
     assert store.file(image)["state"] == "ocr_pending"
     assert store.file(root / "new.txt")["state"] == "ready"
+
+
+@pytest.mark.parametrize('suffix', ['webp', 'tiff'])
+def test_additional_image_formats_are_content_searchable(tmp_path, suffix):
+    root = tmp_path / 'documents'
+    root.mkdir()
+    path = root / f'screenshot.{suffix}'
+    screenshot(path)
+    engine = Engine(Store(tmp_path / 'data/index.sqlite3', TestEmbedder.identity), TestEmbedder())
+    try:
+        report = engine.index(root)
+        assert report.indexed == 1 and not report.errors
+        assert '4821' in engine.search('4821')[0].text
+    finally:
+        engine.ocr_worker.close()

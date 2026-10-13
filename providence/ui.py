@@ -1065,6 +1065,11 @@ class Window(QMainWindow):
                 sort=self.sort_filter.currentData(),
                 offset=self.offset,
             )
+            self.results_empty.setText(
+                "No files in this view. Choose another folder or fewer filters."
+                if any(self.filters().values())
+                else "Your files will appear here as they are discovered."
+            )
         unavailable = [root for root in self.engine.store.roots() if not root.is_dir()]
         for row in rows:
             row["available"] = not any(
@@ -1145,7 +1150,10 @@ class Window(QMainWindow):
             return
         self._preview_key = key
         self.preview.load(path, result.page if result else None)
-        self.preview.set_match(self.query.text().strip() if result else "")
+        self.preview.set_match(
+            " ".join(result.matched_words) if result and result.explanation
+            else self.query.text().strip() if result else ""
+        )
         digest = self.engine.store.digest(path)
         if digest and row["ocr"]:
             payload = (
@@ -1154,11 +1162,14 @@ class Window(QMainWindow):
             )
             self.preview.set_ocr(payload)
         passage = result.text if result else ""
+        explanation = result.explanation if result else ""
+        self.match_text.setTextFormat(Qt.TextFormat.PlainText)
         self.match_text.setText(
-            (result.reason + " match · " if result else "")
+            ("Why this file: " + explanation + "\n" if explanation
+             else result.reason + " match · " if result else "")
             + passage[:300].replace("\n", " ")
         )
-        self.match_text.setToolTip(passage)
+        self.match_text.setToolTip(explanation + "\n" + passage)
 
     def edit_search(self):
         """Typing changes the draft only; searching always needs submission."""
@@ -1252,15 +1263,42 @@ class Window(QMainWindow):
         self.search_phase = "Search complete"
         self.offset = 0
         self.load_files()
-        self.status.setText("Search complete · Filename, text and meaning combined.")
-        self.results_empty.setText(
-            "No matches in this scope. Try fewer filters or another description."
-        )
+        query = ' '.join(self.query.text().split())
+        related = sum(result.reason == "Meaning" for result in results)
+        word_matches = len(results) - related
+        if not results:
+            message = f'No files found for “{query}” in this search scope.'
+            self.results_empty.setText(
+                message + " Try fewer filters or another description."
+            )
+        elif not word_matches:
+            message = (
+                f'No word or filename matches for “{query}”. '
+                f'Showing {related:,} potentially related '
+                + ("file." if related == 1 else "files.")
+            )
+        else:
+            message = (
+                f'Results for “{query}” · {word_matches:,} word/filename '
+                + ("match" if word_matches == 1 else "matches")
+            )
+            if related:
+                message += f" · {related:,} potentially related " + (
+                    "file" if related == 1 else "files"
+                )
+        self.status.setTextFormat(Qt.TextFormat.PlainText)
+        self.results_empty.setTextFormat(Qt.TextFormat.PlainText)
+        self.status.setText(message)
 
     def search_failed(self, message, generation):
         if generation == self.search_generation:
             self.search_percent = 0
             self.search_phase = "Search needs attention"
+            self.search_results = []
+            self.offset = 0
+            self.load_files()
+            self.summary.setText("Search failed")
+            self.results_empty.setText("Search could not finish. Check the error and try again.")
             self.show_error(message)
 
     def search_done(self):
@@ -1271,6 +1309,14 @@ class Window(QMainWindow):
             self.pending_search = False
             # Only an explicit submission can queue another search.
             self.search()
+        elif self.summary.text() == "Searching…":
+            # A result rejected because the draft/scope changed must leave busy state.
+            self.search_percent = 0
+            self.search_phase = "Search changed"
+            self.search_results = None
+            self.load_files()
+            self.summary.setText("Press Search to update results")
+            self.status.setText("Search changed · Press Enter or Search when you're ready.")
 
     def pick_folder(self):
         folder = QFileDialog.getExistingDirectory(

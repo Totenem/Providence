@@ -1,0 +1,46 @@
+{
+  "profile": "minilm",
+  "model": "sentence-transformers/all-MiniLM-L6-v2@1110a243fdf4706b3f48f1d95db1a4f5529b4d41:normalized:v1",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "python": "3.13.16",
+  "documents": 25,
+  "queries": 200,
+  "synthetic": true,
+  "quality": {
+    "hit1": 0.875,
+    "hit5": 0.92,
+    "ndcg": 0.9085
+  },
+  "categories": {
+    "English": {
+      "hit1": 1.0,
+      "hit5": 1.0,
+      "ndcg": 1.0
+    },
+    "Filipino": {
+      "hit1": 0.5,
+      "hit5": 0.68,
+      "ndcg": 0.6338
+    },
+    "Mixed": {
+      "hit1": 1.0,
+      "hit5": 1.0,
+      "ndcg": 1.0
+    },
+    "Identifier": {
+      "hit1": 1.0,
+      "hit5": 1.0,
+      "ndcg": 1.0
+    },
+    "Filename": {
+      "hit1": 1.0,
+      "hit5": 1.0,
+      "ndcg": 1.0
+    }
+  },
+  "query_batch_seconds": 5.568,
+  "index_seconds": 0.642,
+  "warm_encoder_p95_ms": 14.387,
+  "cached_query_hybrid_lookup_p95_ms": 32.431,
+  "indexing_issues": []
+}

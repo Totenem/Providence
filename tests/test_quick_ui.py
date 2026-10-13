@@ -56,6 +56,24 @@ def test_qml_onboarding_search_selection_and_settings(app, tmp_path):
     window.close()
 
 
+def test_completed_search_releases_narrow_results_area(app, tmp_path):
+    engine = make_engine(tmp_path)
+    root = library(tmp_path)
+    engine.index(root)
+    engine.store.set_setting('onboarding_complete', '1')
+    window = QuickWindow(engine, monitor=False)
+    window.resize(1080, 640)
+    window.show()
+    window.bridge.submitSearch('database')
+    finish(app, window.controller)
+    window.bridge.refresh()
+    QTest.qWait(50)
+    progress = window.quick.rootObject().findChild(QObject, 'search-progress')
+    assert not progress.property('visible')
+    assert window.bridge.rows
+    window.close()
+
+
 def test_typing_and_library_changes_never_search_without_submission(
     app, tmp_path, monkeypatch
 ):

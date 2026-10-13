@@ -70,7 +70,9 @@ class LibraryBridge(QObject):
                     if not row.get("available", True)
                     else row["state"].replace("_", " "),
                     size=f"{row['size'] / 1024:,.0f} KB",
-                    match=result.reason if result else "",
+                    match=("Related" if result.reason == "Meaning" else result.reason)
+                    if result else "",
+                    explanation=result.explanation if result else "",
                 )
             )
         roots = [str(p) for p in c.engine.store.roots()]
@@ -125,6 +127,7 @@ class LibraryBridge(QObject):
             query=c.query.text(),
             summary=c.summary.text(),
             status=c.status.text(),
+            emptyMessage=c.results_empty.text(),
             count=c.count_label.text(),
             progress=c.busy_message.text(),
             phase=c.busy_title.text(),

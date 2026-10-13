@@ -119,3 +119,24 @@ def test_new_support_requeues_previously_unsupported_file(tmp_path):
     store.state(path, 'unsupported')
     store.discover([(path, signature(path), path.stat().st_mtime, True)])
     assert path in store.pending()
+
+
+def test_image_removed_during_encoding_does_not_abort_other_images(tmp_path):
+    store, root = catalog(tmp_path, {'beach.png': b'fake beach', 'city.png': b'fake city'})
+    class RemovingModel(VisualModel):
+        def image(self, path):
+            vector = super().image(path)
+            if path.name == 'beach.png':
+                store.forget(path)
+            return vector
+    report = ImageLibrary(store, RemovingModel()).update()
+    assert report['indexed'] == 1 and len(report['errors']) == 1
+
+
+def test_clear_index_removes_image_vectors_without_changing_originals(tmp_path):
+    store, root = catalog(tmp_path, {'beach.png': b'fake beach'})
+    ImageLibrary(store, VisualModel()).update()
+    store.clear_library()
+    with store.connect() as db:
+        assert db.execute('SELECT COUNT(*) FROM image_vectors').fetchone()[0] == 0
+    assert (root / 'beach.png').read_bytes() == b'fake beach'

@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from hashlib import file_digest
 from pathlib import Path
 import math
@@ -12,6 +12,7 @@ from .store import Store
 from .discovery import DEFAULT_EXCLUSIONS, excluded, walk_files
 from .vector_index import VectorIndex
 from .ocr import OCRWorker
+from .search_evidence import identifiers, normalize_identifiers, word_found, explain
 
 
 @dataclass
@@ -30,6 +31,8 @@ class Result:
     page: int | None
     score: float
     reason: str = "Meaning"
+    explanation: str = ""
+    matched_words: tuple[str, ...] = ()
 
 
 class IndexProgress(str):
@@ -485,17 +488,25 @@ class Engine:
         if cancelled():
             return []
         progress(IndexProgress("Checking your search scope", percent=5))
-        eligible = None
-        if filters and any(filters.values()):
-            rows, _ = self.store.list_files(**filters, limit=1_000_000)
-            eligible = {row["path"] for row in rows}
+        codes = identifiers(query)
+        rows, _ = self.store.list_files(**filters, limit=1_000_000)
+        eligible = {row["path"] for row in rows}
+        if not eligible:
+            progress(IndexProgress("No files in this scope", percent=100))
+            return []
+        if codes:
+            progress(IndexProgress("Checking exact class and reference codes", percent=10))
+            code_paths = self.store.identifier_paths(codes, cancelled)
+            eligible = code_paths if eligible is None else eligible & code_paths
+            if cancelled():
+                return []
             if not eligible:
-                progress(IndexProgress("No files in this scope", percent=100))
+                progress(IndexProgress("No files match the requested codes", percent=100))
                 return []
         best = {}
         ranks = {}
 
-        def add(rows, reason):
+        def add(rows, reason, weight=1):
             seen = set()
             rank = 0
             for path, text, page, score in rows:
@@ -503,7 +514,7 @@ class Engine:
                     continue
                 seen.add(path)
                 rank += 1
-                ranks[path] = ranks.get(path, 0) + 1 / (60 + rank)
+                ranks[path] = ranks.get(path, 0) + weight / (60 + rank)
                 previous = best.get(path)
                 if (
                     not previous
@@ -527,11 +538,20 @@ class Engine:
         if cancelled():
             return []
         progress(IndexProgress("Checking exact words", percent=75))
+        word_query, corrected = self.store.search_words(normalize_identifiers(query))
+        words = word_query.split()
+        text_reason = "Similar words" if corrected else "Text"
+        word_limit = 1000 if eligible is not None else max(100, limit * 4)
+        # All remembered words together are stronger evidence than one common word.
+        if len(word_query.split()) > 1:
+            add(
+                self.store.lexical(word_query, word_limit, require_all=True),
+                text_reason,
+                weight=2,
+            )
         add(
-            self.store.lexical(
-                query, 1000 if eligible is not None else max(100, limit * 4)
-            ),
-            "Text",
+            self.store.lexical(word_query, word_limit),
+            text_reason,
         )
         for path in self.store.names(
             query, 1000 if eligible is not None else max(100, limit * 4)
@@ -548,9 +568,28 @@ class Engine:
                     if query.casefold() in Path(path).name.casefold()
                     else "Path",
                 )
+        if codes:
+            for path in eligible:
+                if all(word_found(word, path) for word in words):
+                    in_filename = all(word_found(word, Path(path).name) for word in words)
+                    ranks[path] = ranks.get(path, 0) + (0.05 if in_filename else 0.02)
+                    previous = best.get(path)
+                    best[path] = Result(
+                        path, previous.text if previous else '',
+                        previous.page if previous else None, .99,
+                        'Filename' if in_filename else 'Path',
+                    )
         if cancelled():
             return []
         progress(IndexProgress("Ranking your documents", percent=95))
+        for path, result in best.items():
+            reason, explanation, matched = explain(path, result.text, words, query, result.reason)
+            best[path] = replace(
+                result, reason=reason, explanation=explanation,
+                matched_words=tuple(word for word in words if word in matched),
+            )
+            if codes and all(word in matched for word in words):
+                ranks[path] += 0.04
         results = sorted(
             best.values(), key=lambda item: (-ranks[item.path], -item.score, item.path)
         )[:limit]
