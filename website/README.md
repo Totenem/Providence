@@ -1,6 +1,6 @@
 # Providence website
 
-Next.js marketing site with app screenshots, an interactive fictional search demo, feature descriptions, FAQ, privacy page, and download CTAs linking to the latest GitHub release. The site clearly separates released v1.0.1 features from upcoming v1.0.2 work.
+Next.js marketing site with app screenshots, an interactive fictional search demo, feature descriptions, FAQ, privacy page, release notes, and download CTAs linking to the latest GitHub release.
 
 ## Run locally
 

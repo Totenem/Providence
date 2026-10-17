@@ -5,6 +5,7 @@ import math
 import os
 import json
 import time
+import re
 from threading import RLock, Event
 
 from .documents import SUPPORTED, IMAGE_FORMATS, Passage, chunk, extract
@@ -593,5 +594,16 @@ class Engine:
         results = sorted(
             best.values(), key=lambda item: (-ranks[item.path], -item.score, item.path)
         )[:limit]
+        if self.store.setting("reranker_enabled", "0") == "1" and results:
+            # A small, deterministic local reranker. It is deliberately optional:
+            # no model download or conversational generation is involved.
+            query_terms = set(re.findall(r"\w+", query.casefold()))
+            rescored = []
+            for position, result in enumerate(results):
+                evidence = set(re.findall(r"\w+", (Path(result.path).name + " " + result.text).casefold()))
+                overlap = len(query_terms & evidence) / max(1, len(query_terms))
+                score = ranks[result.path] + overlap * 0.08 + (0.02 if result.reason in {"Filename", "Path", "Text", "Similar words"} else 0)
+                rescored.append((score, -position, result))
+            results = [item[2] for item in sorted(rescored, reverse=True)]
         progress(IndexProgress("Search complete", percent=100))
         return results

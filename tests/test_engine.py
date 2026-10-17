@@ -151,6 +151,25 @@ def test_pdf_pages_and_docx_tables(tmp_path):
     assert "Borrowers" in extract(docx)[0].text
 
 
+def test_extended_document_formats(tmp_path):
+    import json
+    from zipfile import ZipFile, ZIP_DEFLATED
+
+    notebook = tmp_path / "notes.ipynb"
+    notebook.write_text(json.dumps({"cells": [{"cell_type": "code", "source": ["print('hello')"], "outputs": [{"text": ["hello\n"]}]}]}))
+    assert "print('hello')" in extract(notebook)[0].text
+
+    epub = tmp_path / "book.epub"
+    with ZipFile(epub, "w", ZIP_DEFLATED) as archive:
+        archive.writestr("chapter.xhtml", "<html><body><h1>Offline guide</h1><p>Local search</p></body></html>")
+    assert "Offline guide" in extract(epub)[0].text
+
+    odt = tmp_path / "notes.odt"
+    with ZipFile(odt, "w", ZIP_DEFLATED) as archive:
+        archive.writestr("content.xml", "<office:document><text:p>OpenDocument note</text:p></office:document>")
+    assert "OpenDocument note" in extract(odt)[0].text
+
+
 def test_normalized_rejects_bad_vectors():
     for vector in ([0, 0], [math.nan, 1], [math.inf, 1]):
         with pytest.raises(ValueError):

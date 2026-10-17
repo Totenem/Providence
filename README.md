@@ -6,9 +6,9 @@
 
 **Find your files by what you remember.** Providence is an offline desktop file browser and search app. It combines filenames, exact text, and semantic search to find documents, scanned PDFs, and screenshots on your computer.
 
-**Source version 1.0.2 (in development) · Windows desktop · MIT license**
+**Source version 1.0.3 · Windows desktop · MIT license**
 
-The published Windows download is still **v1.0.1**. The new tools and formats below are available in the v1.0.2 source; a new portable package has not been built or published yet.
+The v1.0.3 Windows download includes favorites, saved searches, an optional local evidence reranker, and broader document-format support.
 
 ![Providence library in dark mode, showing demo documents and a padded document preview](docs/images/library-dark.png)
 
@@ -40,11 +40,11 @@ The published Windows download is still **v1.0.1**. The new tools and formats be
 
 ![Search clues dialog with folder, connected-file count, file type, and modified-date questions](docs/images/search-clues-dark.png)
 
-### Duplicate review (v1.0.2 source)
+### Duplicate review (v1.0.2)
 
 ![Read-only duplicate review showing two fictional invoice copies and a text preview](docs/images/duplicates-dark.png)
 
-### Visual image search (v1.0.2 source)
+### Visual image search (v1.0.2)
 
 ![Local image search showing a synthetic red square retrieved from an English description](docs/images/images-light.png)
 
@@ -65,7 +65,7 @@ Published packages are listed on the [Releases page](https://github.com/Totenem/
 
 For example: `the database proposal from last semester`.
 
-In the v1.0.2 source app, explicit class/reference codes narrow document search: `attendance of 1CS1` accepts `1-CS1` and keeps other class codes separate. Results explain which filename, folder or passage words matched, including spelling fallback. Related semantic suggestions remain labelled as such.
+In the v1.0.3 app, explicit class/reference codes narrow document search: `attendance of 1CS1` accepts `1-CS1` and keeps other class codes separate. Results explain which filename, folder or passage words matched, including spelling fallback. Related semantic suggestions remain labelled as such.
 
 Use **Locations & settings** to change scope, exclusions, theme, OCR, resource mode, or the search model. Use **Index health** to review files needing attention. Processing stops when the app closes and unfinished indexing resumes on the next launch.
 
@@ -95,7 +95,7 @@ Open **Image search**, select **Update image index**, then type an English scene
 
 Image results are ranked visual similarities, not confidence percentages. The first version searches all cached image vectors in the selected scope and returns up to 100 results. No-match detection, fine details, counting, handwriting, and large-photo-library performance are not validated. See [v1.0.2 validation](docs/1.0.2-validation.md) and the [publisher model card](https://huggingface.co/openai/clip-vit-base-patch32).
 
-Additional formats worth evaluating next are EPUB/ODT/ODS, RTF, Jupyter notebooks, and HEIC/HEIF. Legacy DOC/XLS/PPT and audio/video need dedicated converters or local transcription and are not supported for content search yet.
+EPUB, OpenDocument, Jupyter notebooks, legacy DOC/XLS/PPT through local LibreOffice, and HEIC/HEIF are supported in v1.0.3. Audio/video still need dedicated converters or local transcription.
 
 ### Privacy and practical limits
 
@@ -189,7 +189,7 @@ Remove `QT_QPA_PLATFORM` and `QT_QUICK_BACKEND` from the environment before retu
 
 For Windows packaging, see [the build script](scripts/build-windows.ps1), [pinned build dependencies](requirements-windows.txt), and [portable package instructions](scripts/WINDOWS-README.txt). The app and its bundled dependencies/models must remain together.
 
-Every release includes a user-facing summary and GitHub-generated change notes. See the [v1.0.2 release summary](docs/releases/1.0.2.md), [published v1.0.1 summary](docs/releases/1.0.1.md), and [release process](docs/RELEASING.md) for versioning, validation, and separate build/publication controls.
+Every release includes a user-facing summary and GitHub-generated change notes. See the [v1.0.3 release summary](docs/releases/1.0.3.md), [v1.0.2 release summary](docs/releases/1.0.2.md), and [release process](docs/RELEASING.md) for versioning, validation, and separate build/publication controls.
 
 ## Research and evaluation
 

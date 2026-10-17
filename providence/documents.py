@@ -1,6 +1,11 @@
 from dataclasses import dataclass
 from pathlib import Path
 import re
+import json
+import shutil
+import subprocess
+import tempfile
+from zipfile import ZipFile
 
 TEXT_FORMATS = {
     '.txt', '.md', '.markdown', '.rst', '.log', '.csv', '.tsv', '.json', '.jsonl',
@@ -10,8 +15,11 @@ TEXT_FORMATS = {
     '.swift', '.dart', '.r', '.sh', '.bash', '.ps1', '.bat', '.cmd', '.css',
     '.scss', '.sass', '.less', '.vue', '.svelte', '.qml', '.html', '.htm',
 }
-IMAGE_FORMATS = {'.png', '.jpg', '.jpeg', '.webp', '.bmp', '.tif', '.tiff'}
-SUPPORTED = TEXT_FORMATS | IMAGE_FORMATS | {'.pdf', '.docx', '.xlsx', '.pptx'}
+IMAGE_FORMATS = {'.png', '.jpg', '.jpeg', '.webp', '.bmp', '.tif', '.tiff', '.heic', '.heif'}
+SUPPORTED = TEXT_FORMATS | IMAGE_FORMATS | {
+    '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
+    '.epub', '.odt', '.ods', '.odp', '.ipynb',
+}
 MAX_TEXT_BYTES = 10 * 1024 * 1024
 MAX_EXTRACTED_CHARS = 2_000_000
 
@@ -37,6 +45,104 @@ def check_office_archive(path):
     with ZipFile(path) as archive:
         if sum(item.file_size for item in archive.infolist()) > 100 * 1024 * 1024:
             raise ValueError('Office document exceeds the 100 MB expanded-size limit')
+
+
+def register_image_plugins():
+    """Register optional local decoders without making them a hard import dependency."""
+    try:
+        from pillow_heif import register_heif_opener
+    except ImportError:
+        return False
+    register_heif_opener()
+    return True
+
+
+def archive_text(path, suffix):
+    """Extract readable text from EPUB/OpenDocument packages with size limits."""
+    check_office_archive(path)
+    from html.parser import HTMLParser
+
+    class VisibleText(HTMLParser):
+        def __init__(self):
+            super().__init__(convert_charrefs=True)
+            self.hidden = 0
+            self.parts = []
+
+        def handle_starttag(self, tag, attrs):
+            if tag in {'script', 'style', 'noscript'}:
+                self.hidden += 1
+
+        def handle_endtag(self, tag):
+            if tag in {'script', 'style', 'noscript'}:
+                self.hidden = max(0, self.hidden - 1)
+
+        def handle_data(self, data):
+            if not self.hidden:
+                self.parts.append(data)
+
+    passages = []
+    total = 0
+    with ZipFile(path) as archive:
+        names = archive.namelist()
+        if suffix == '.epub':
+            names = [name for name in names if name.lower().endswith(('.xhtml', '.html', '.htm'))]
+        elif suffix in {'.odt', '.ods', '.odp'}:
+            names = ['content.xml'] if 'content.xml' in names else []
+        for name in names:
+            raw = archive.read(name)
+            parser = VisibleText()
+            parser.feed(raw.decode('utf-8', errors='replace'))
+            text = ' '.join(' '.join(parser.parts).split())
+            if not text:
+                continue
+            total += len(text)
+            if total > MAX_EXTRACTED_CHARS:
+                raise ValueError('Document exceeds the extracted-text limit')
+            passages.append(Passage(text))
+    return passages
+
+
+def notebook_passages(path):
+    if path.stat().st_size > MAX_TEXT_BYTES:
+        raise ValueError('Notebook exceeds the 10 MB extraction limit')
+    try:
+        notebook = json.loads(path.read_text(encoding='utf-8'))
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise ValueError(f'Invalid Jupyter notebook: {error}') from error
+    passages, total = [], 0
+    for index, cell in enumerate(notebook.get('cells', []), 1):
+        source = ''.join(cell.get('source', []))
+        outputs = []
+        for output in cell.get('outputs', []):
+            text = output.get('text', [])
+            if isinstance(text, list):
+                outputs.extend(text)
+        text = f'Cell {index} ({cell.get("cell_type", "unknown")})\n{source}'
+        if outputs:
+            text += '\nOutput:\n' + ''.join(outputs)
+        total += len(text)
+        if total > MAX_EXTRACTED_CHARS:
+            raise ValueError('Notebook exceeds the extracted-text limit')
+        if source.strip() or outputs:
+            passages.append(Passage(text))
+    return passages
+
+
+def legacy_office_passages(path):
+    """Use an installed local LibreOffice converter for binary Office 97 files."""
+    executable = shutil.which('soffice') or shutil.which('libreoffice')
+    if not executable:
+        raise ValueError('Legacy Office files require a local LibreOffice installation')
+    with tempfile.TemporaryDirectory(prefix='providence-convert-') as directory:
+        result = subprocess.run(
+            [executable, '--headless', '--convert-to', 'txt:Text', '--outdir', directory, str(path)],
+            capture_output=True, text=True, timeout=90, check=False,
+        )
+        converted = Path(directory) / f'{path.stem}.txt'
+        if result.returncode or not converted.is_file():
+            detail = (result.stderr or result.stdout).strip()
+            raise ValueError(f'Legacy Office conversion failed{": " + detail if detail else ""}')
+        return [Passage(read_text(converted))]
 
 
 def spreadsheet_passages(path):
@@ -106,6 +212,12 @@ def extract(path: Path) -> list[Passage]:
             parser.feed(content)
             content = '\n'.join(parser.parts)
         return [Passage(content)]
+    if suffix == '.ipynb':
+        return notebook_passages(path)
+    if suffix in {'.epub', '.odt', '.ods', '.odp'}:
+        return archive_text(path, suffix)
+    if suffix in {'.doc', '.xls', '.ppt'}:
+        return legacy_office_passages(path)
     if suffix == '.xlsx':
         return spreadsheet_passages(path)
     if suffix == '.pptx':
@@ -143,6 +255,9 @@ def extract(path: Path) -> list[Passage]:
             for row in table.rows
         )
         return [Passage("\n".join(texts))]
+    if suffix in IMAGE_FORMATS:
+        register_image_plugins()
+        return []
     raise ValueError(f"Unsupported file type: {suffix}")
 
 

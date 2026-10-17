@@ -8,7 +8,7 @@ export function Navigation() {
   return <header className="header"><a className="brand" href="#" aria-label="Providence home"><img src="/icon.png" alt="" width="30" height="30" />Providence<span className="brand-dot">.</span></a>
     <button className="menu-toggle" aria-expanded={open} aria-controls="navigation" onClick={() => setOpen(!open)}>{open ? 'Close' : 'Menu'}</button>
     <nav id="navigation" className={open ? 'navigation open' : 'navigation'} aria-label="Main navigation">
-      <a href="#features" onClick={() => setOpen(false)}>Features</a><a href="#how-it-works" onClick={() => setOpen(false)}>How it works</a><a href="#faq" onClick={() => setOpen(false)}>FAQ</a><a className="button small" href={releaseUrl}>Download <span aria-hidden="true">↗</span></a>
+      <a href="#features" onClick={() => setOpen(false)}>Features</a><a href="#how-it-works" onClick={() => setOpen(false)}>How it works</a><a href="/releases" onClick={() => setOpen(false)}>Release notes</a><a href="#faq" onClick={() => setOpen(false)}>FAQ</a><a className="button small" href={releaseUrl}>Download <span aria-hidden="true">↗</span></a>
     </nav></header>;
 }
 

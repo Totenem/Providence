@@ -272,6 +272,7 @@ Rectangle {
                     }
                     Action { text: '×'; Accessible.name: 'Clear search'; onClicked: library.search('') }
                     Action { text: 'Search'; primary: true; onClicked: library.submitSearch(query.text) }
+                    Action { text: 'Save search'; enabled: query.text.trim().length > 0; onClicked: library.saveSearch() }
                 }
                 Flow {
                     Layout.fillWidth: true
@@ -292,6 +293,16 @@ Rectangle {
                     Choice { field: 'size' }
                     Choice { field: 'sort' }
                     Action { text: 'Reset'; onClicked: library.action('clear') }
+                }
+                Flow {
+                    Layout.fillWidth: true
+                    spacing: 6
+                    visible: shell.snapshot.savedSearches.length > 0
+                    Caption { text: 'SAVED SEARCHES'; color: shell.muted; font.pixelSize: 10; font.letterSpacing: 1.2 }
+                    Repeater {
+                        model: shell.snapshot.savedSearches
+                        delegate: Action { required property var modelData; text: modelData.name; onClicked: library.loadSavedSearch(modelData.id) }
+                    }
                 }
                 Caption { text: 'FOLDERS'; visible: shell.snapshot.folders.length > 0; font.pixelSize: 10; font.letterSpacing: 1.2; color: shell.muted }
                 Flickable {
@@ -387,7 +398,7 @@ Rectangle {
                                     Layout.minimumWidth: 0
                                     Layout.preferredWidth: 100
                                     spacing: 3
-                                    Caption { text: entry.modelData.name; font.weight: Font.DemiBold; Layout.fillWidth: true; Layout.minimumWidth: 0; Layout.preferredWidth: 1 }
+                                    Caption { text: (entry.modelData.favorite ? '★ ' : '') + entry.modelData.name; font.weight: Font.DemiBold; Layout.fillWidth: true; Layout.minimumWidth: 0; Layout.preferredWidth: 1 }
                                     Caption { text: entry.modelData.path; color: shell.muted; font.pixelSize: 11; Layout.fillWidth: true; Layout.minimumWidth: 0; Layout.preferredWidth: 1 }
                                     Caption {
                                         objectName: 'match-evidence-' + entry.index
@@ -465,6 +476,7 @@ Rectangle {
         MenuItem { text: 'Show in Explorer'; onTriggered: library.action('reveal') }
         MenuItem { text: 'Copy path'; onTriggered: library.action('copy') }
         MenuItem { text: 'Copy passage'; onTriggered: library.action('passage') }
+        MenuItem { text: 'Toggle favorite'; onTriggered: library.favorite(files.currentIndex) }
         MenuItem { text: 'Retry indexing'; onTriggered: library.action('retry') }
     }
     Popup {

@@ -147,6 +147,8 @@ class ClipEmbedder:
         import numpy as np
         import torch
         from PIL import Image, ImageOps
+        from .documents import register_image_plugins
+        register_image_plugins()
         with self.lock, torch.inference_mode():
             self.load()
             with Image.open(path) as source:

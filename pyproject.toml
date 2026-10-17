@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "providence-search"
-version = "1.0.2"
+version = "1.0.3"
 description = "Offline semantic search for personal documents"
 requires-python = ">=3.11,<3.14"
 dependencies = [
@@ -21,6 +21,7 @@ dependencies = [
   "rapidocr==3.10.0",
   "onnxruntime>=1.20,<2",
   "Pillow>=11,<13",
+  "pillow-heif>=1.1,<2",
 ]
 
 [project.optional-dependencies]

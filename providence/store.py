@@ -34,6 +34,13 @@ class Store:
                 CREATE INDEX IF NOT EXISTS files_suffix ON files(suffix);
                 CREATE TABLE IF NOT EXISTS ocr_cache (
                     identity TEXT PRIMARY KEY, payload TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS favorites (
+                    path TEXT PRIMARY KEY REFERENCES files(path) ON DELETE CASCADE,
+                    created REAL NOT NULL);
+                CREATE TABLE IF NOT EXISTS saved_searches (
+                    id INTEGER PRIMARY KEY, name TEXT NOT NULL, query TEXT NOT NULL,
+                    filters TEXT NOT NULL, clues TEXT NOT NULL, created REAL NOT NULL,
+                    updated REAL NOT NULL);
                 CREATE VIRTUAL TABLE IF NOT EXISTS chunk_fts USING fts5(text, path UNINDEXED, page UNINDEXED,
                     content='chunks', content_rowid='id', tokenize='unicode61');
                 CREATE VIRTUAL TABLE IF NOT EXISTS chunk_terms USING fts5vocab(chunk_fts, 'row');
@@ -133,6 +140,46 @@ class Store:
         with self.connect() as db:
             db.execute("INSERT OR REPLACE INTO metadata VALUES (?,?)", (key, value))
 
+    def favorite(self, path, enabled=None):
+        path = str(path)
+        with self.connect() as db:
+            exists = db.execute("SELECT 1 FROM favorites WHERE path=?", (path,)).fetchone()
+            if enabled is None:
+                enabled = not bool(exists)
+            if enabled:
+                db.execute("INSERT OR IGNORE INTO favorites VALUES (?,?)", (path, time.time()))
+            else:
+                db.execute("DELETE FROM favorites WHERE path=?", (path,))
+            return bool(enabled)
+
+    def is_favorite(self, path):
+        with self.connect() as db:
+            return bool(db.execute("SELECT 1 FROM favorites WHERE path=?", (str(path),)).fetchone())
+
+    def save_search(self, name, query, filters=None, clues=None):
+        name = " ".join(str(name).split()).strip()
+        query = " ".join(str(query).split()).strip()
+        if not name or not query:
+            raise ValueError("A saved search needs a name and a query")
+        now = time.time()
+        with self.connect() as db:
+            db.execute(
+                "INSERT INTO saved_searches(name,query,filters,clues,created,updated) VALUES(?,?,?,?,?,?)",
+                (name, query, json.dumps(filters or {}, sort_keys=True, default=str),
+                 json.dumps(clues or {}, sort_keys=True, default=str), now, now),
+            )
+
+    def saved_searches(self):
+        with self.connect() as db:
+            db.row_factory = sqlite3.Row
+            return [dict(row) for row in db.execute(
+                "SELECT * FROM saved_searches ORDER BY updated DESC, id DESC"
+            )]
+
+    def delete_saved_search(self, search_id):
+        with self.connect() as db:
+            db.execute("DELETE FROM saved_searches WHERE id=?", (int(search_id),))
+
     def remove_root(self, root):
         root = Path(root)
         with self.connect() as db:
@@ -167,6 +214,7 @@ class Store:
             db.execute("DELETE FROM roots")
             db.execute("DELETE FROM files")
             db.execute("DELETE FROM ocr_cache")
+            db.execute("DELETE FROM favorites")
             self.bump(db)
 
     def digest(self, path):
@@ -344,7 +392,7 @@ class Store:
         with self.connect() as db:
             db.row_factory = sqlite3.Row
             row = db.execute(
-                "SELECT * FROM files WHERE path=?", (str(path),)
+                "SELECT files.*, EXISTS(SELECT 1 FROM favorites WHERE favorites.path=files.path) AS favorite FROM files WHERE files.path=?", (str(path),)
             ).fetchone()
             return dict(row) if row else None
 
@@ -369,6 +417,7 @@ class Store:
         days=0,
         min_size=0,
         max_size=0,
+        favorite=False,
         sort="name",
         offset=0,
         limit=200,
@@ -403,6 +452,8 @@ class Store:
         if max_size:
             clauses.append("size<=?")
             args.append(max_size)
+        if favorite:
+            clauses.append("EXISTS(SELECT 1 FROM favorites WHERE favorites.path=files.path)")
         where = " WHERE " + " AND ".join(clauses) if clauses else ""
         order = {
             "name": "name COLLATE NOCASE,path",
@@ -414,7 +465,7 @@ class Store:
             db.row_factory = sqlite3.Row
             total = db.execute("SELECT COUNT(*) FROM files" + where, args).fetchone()[0]
             rows = db.execute(
-                "SELECT * FROM files"
+                "SELECT files.*, EXISTS(SELECT 1 FROM favorites WHERE favorites.path=files.path) AS favorite FROM files"
                 + where
                 + " ORDER BY "
                 + order

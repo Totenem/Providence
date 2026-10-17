@@ -73,6 +73,7 @@ class LibraryBridge(QObject):
                     match=("Related" if result.reason == "Meaning" else result.reason)
                     if result else "",
                     explanation=result.explanation if result else "",
+                    favorite=bool(row.get("favorite")),
                 )
             )
         roots = [str(p) for p in c.engine.store.roots()]
@@ -141,6 +142,10 @@ class LibraryBridge(QObject):
             up=c.up_button.isEnabled(),
             crumbs=crumbs,
             folders=[dict(name=Path(p).name or p, path=p) for p in folders],
+            savedSearches=[
+                dict(id=item["id"], name=item["name"])
+                for item in c.engine.store.saved_searches()
+            ],
             feedback=c.onboarding_feedback.text(),
             dark=dark,
             reducedMotion=c.reduced_motion.isChecked(),
@@ -175,6 +180,7 @@ class LibraryBridge(QObject):
             date=c.date_filter,
             size=c.size_filter,
             sort=c.sort_filter,
+            favorite=c.favorite_filter,
         )
 
     @Slot(str, int)
@@ -202,6 +208,30 @@ class LibraryBridge(QObject):
     def refineSearch(self, clues):
         self.controller.search_clues = dict(clues)
         self.controller.search()
+        self.refresh()
+
+    @Slot()
+    def saveSearch(self):
+        self.controller.save_current_search()
+        self.refresh()
+
+    @Slot(int)
+    def loadSavedSearch(self, search_id):
+        c = self.controller
+        c.refresh_saved_searches()
+        for index in range(c.saved_search_combo.count()):
+            saved = c.saved_search_combo.itemData(index)
+            if saved and int(saved["id"]) == int(search_id):
+                c.load_saved_search(index)
+                break
+        self.refresh()
+
+    @Slot(int)
+    def favorite(self, index):
+        c = self.controller
+        if 0 <= index < len(c.file_model.rows):
+            c.results.setCurrentIndex(c.file_model.index(index, 0))
+            c.toggle_favorite()
         self.refresh()
 
     @Slot(str)

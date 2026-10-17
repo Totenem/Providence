@@ -143,6 +143,8 @@ def _run(pipe):
                                     payload.append(item)
             else:
                 from PIL import Image, ImageOps
+                from .documents import register_image_plugins
+                register_image_plugins()
 
                 with Image.open(path) as image:
                     image = ImageOps.exif_transpose(image).convert("RGB")

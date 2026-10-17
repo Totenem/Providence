@@ -56,6 +56,7 @@ from PySide6.QtWidgets import (
     QGraphicsOpacityEffect,
     QFrame,
     QMessageBox,
+    QInputDialog,
 )
 from .engine import Engine, IndexProgress
 from .background import LibraryService
@@ -264,7 +265,7 @@ class FileModel(QAbstractTableModel):
             return None
         result = row.get("result")
         return [
-            row["name"],
+            ("★ " if row.get("favorite") else "") + row["name"],
             row["suffix"].lstrip(".").upper() or "FILE",
             datetime.fromtimestamp(row["modified"]).strftime("%d %b %Y"),
             size_text(row["size"]),
@@ -397,6 +398,7 @@ class Window(QMainWindow):
         body.addWidget(self.pages, 1)
         self.build_onboarding()
         self.build_search()
+        self.refresh_saved_searches()
         self.build_settings()
         self.build_health()
         self.status = label("Ready · All processing happens on this device.", "muted")
@@ -509,9 +511,15 @@ class Window(QMainWindow):
         self.query.setClearButtonEnabled(True)
         self.query.setAccessibleName("Search library")
         self.query.returnPressed.connect(self.search)
+        self.query.textChanged.connect(
+            lambda text: self.save_search_button.setEnabled(bool(text.strip()))
+        )
         address.addWidget(self.query, 2)
         self.search_button = button("Search", self.search, "search", True)
         address.addWidget(self.search_button)
+        self.save_search_button = button("Save search", self.save_current_search)
+        self.save_search_button.setEnabled(False)
+        address.addWidget(self.save_search_button)
         layout.addLayout(address)
         filters = QHBoxLayout()
         self.type_filter = self.combo(
@@ -557,6 +565,9 @@ class Window(QMainWindow):
                 ("Over 10 MB", (10 * 1024**2, 0)),
             ],
         )
+        self.favorite_filter = self.combo(
+            "Filter favorites", [("All files", False), ("Favorites only", True)]
+        )
         self.sort_filter = self.combo(
             "Sort files",
             [
@@ -572,12 +583,19 @@ class Window(QMainWindow):
             self.state_filter,
             self.date_filter,
             self.size_filter,
+            self.favorite_filter,
             self.sort_filter,
         ):
             filters.addWidget(w)
             w.currentIndexChanged.connect(self.filters_changed)
         filters.addWidget(button("Clear filters", self.clear_filters))
         layout.addLayout(filters)
+        self.saved_search_combo = self.combo("Saved searches", [("Saved searches", None)])
+        self.saved_search_combo.activated.connect(self.load_saved_search)
+        saved_row = QHBoxLayout()
+        saved_row.addWidget(self.saved_search_combo)
+        saved_row.addStretch()
+        layout.addLayout(saved_row)
         self.filter_chips = QWidget()
         self.chips_row = QHBoxLayout(self.filter_chips)
         self.chips_row.setContentsMargins(0, 0, 0, 0)
@@ -716,6 +734,19 @@ class Window(QMainWindow):
         )
         self.ocr_enabled.toggled.connect(self.ocr_changed)
         prefs.addWidget(self.ocr_enabled)
+        self.reranker_enabled = QCheckBox("Optional local evidence reranker")
+        self.reranker_enabled.setChecked(
+            self.engine.store.setting("reranker_enabled", "0") == "1"
+        )
+        self.reranker_enabled.toggled.connect(
+            lambda value: self.engine.store.set_setting(
+                "reranker_enabled", "1" if value else "0"
+            )
+        )
+        self.reranker_enabled.setToolTip(
+            "Adds a small deterministic lexical pass after semantic retrieval; it uses no downloaded model."
+        )
+        prefs.addWidget(self.reranker_enabled)
         prefs.addStretch()
         layout.addLayout(prefs)
         models = QHBoxLayout()
@@ -920,6 +951,7 @@ class Window(QMainWindow):
             days=self.date_filter.currentData(),
             min_size=minimum,
             max_size=maximum,
+            favorite=self.favorite_filter.currentData(),
         )
 
     def filters_changed(self):
@@ -939,6 +971,7 @@ class Window(QMainWindow):
             self.state_filter,
             self.date_filter,
             self.size_filter,
+            self.favorite_filter,
         ):
             w.blockSignals(True)
             w.setCurrentIndex(0)
@@ -955,6 +988,7 @@ class Window(QMainWindow):
             self.state_filter,
             self.date_filter,
             self.size_filter,
+            self.favorite_filter,
         ):
             if combo.currentIndex():
                 self.chips_row.addWidget(
@@ -984,6 +1018,55 @@ class Window(QMainWindow):
             self.history_position += 1
         self.update_breadcrumbs()
         self.load_files()
+
+    def refresh_saved_searches(self):
+        if not hasattr(self, "saved_search_combo"):
+            return
+        self.saved_search_combo.blockSignals(True)
+        self.saved_search_combo.clear()
+        self.saved_search_combo.addItem("Saved searches", None)
+        for saved in self.engine.store.saved_searches():
+            self.saved_search_combo.addItem(saved["name"], saved)
+        self.saved_search_combo.blockSignals(False)
+
+    def save_current_search(self):
+        query = self.query.text().strip()
+        if not query:
+            return
+        name, accepted = QInputDialog.getText(
+            self, "Save search", "Name for this saved search:"
+        )
+        if not accepted:
+            return
+        try:
+            self.engine.store.save_search(name, query, self.filters(), self.search_clues)
+            self.refresh_saved_searches()
+            self.status.setText(f'Saved search “{name.strip()}”.')
+        except ValueError as error:
+            self.show_error(str(error))
+
+    def load_saved_search(self, index):
+        saved = self.saved_search_combo.itemData(index)
+        if not saved:
+            return
+        try:
+            filters = json.loads(saved["filters"])
+            clues = json.loads(saved["clues"])
+        except (TypeError, json.JSONDecodeError):
+            self.show_error("This saved search is damaged and cannot be loaded.")
+            return
+        self.query.setText(saved["query"])
+        for combo, value in (
+            (self.type_filter, filters.get("suffix", "")),
+            (self.state_filter, filters.get("state", "")),
+            (self.date_filter, filters.get("days", 0)),
+            (self.favorite_filter, filters.get("favorite", False)),
+        ):
+            combo.setCurrentIndex(max(0, combo.findData(value)))
+        size = (filters.get("min_size", 0), filters.get("max_size", 0))
+        self.size_filter.setCurrentIndex(max(0, self.size_filter.findData(size)))
+        self.search_clues = clues
+        self.search()
 
     def update_breadcrumbs(self):
         while self.crumb_row.count():
@@ -1767,15 +1850,32 @@ class Window(QMainWindow):
         if not self.current_row():
             return
         menu = QMenu(self)
+        row = self.current_row()
+        favorite_text = "Remove favorite" if row.get("favorite") else "Add favorite"
         for text, action in [
             ("Open file", self.open_document),
             ("Show in Explorer", self.reveal_document),
             ("Copy path", self.copy_path),
             ("Copy passage", self.copy_passage),
+            (favorite_text, self.toggle_favorite),
             ("Retry content indexing", self.retry_current),
         ]:
             menu.addAction(text, action)
         menu.exec(self.results.viewport().mapToGlobal(position))
+
+    def toggle_favorite(self):
+        row = self.current_row()
+        if not row:
+            return
+        enabled = self.engine.store.favorite(row["path"])
+        row["favorite"] = enabled
+        self.file_model.dataChanged.emit(
+            self.file_model.index(self.results.currentIndex().row(), 0),
+            self.file_model.index(self.results.currentIndex().row(), self.file_model.columnCount() - 1),
+        )
+        self.status.setText("Added to favorites." if enabled else "Removed from favorites.")
+        if self.favorite_filter.currentData():
+            self.load_files()
 
     def retry_current(self):
         row = self.current_row()

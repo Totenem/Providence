@@ -163,6 +163,8 @@ class DocumentPreview(QWidget):
             elif self.path.suffix.lower() in IMAGE_FORMATS:
                 from io import BytesIO
                 from PIL import Image, ImageOps
+                from .documents import register_image_plugins
+                register_image_plugins()
                 if self.path.stat().st_size > 50 * 1024 * 1024:
                     raise ValueError('Image exceeds the 50 MB preview limit')
                 with Image.open(self.path) as source:
